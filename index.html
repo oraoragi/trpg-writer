@@ -2364,10 +2364,10 @@ async function onAuthStateChanged(user) {
         if (loaded && typeof loaded === "object" && Array.isArray(loaded.scenarios)) {
           app = loaded;
           normalizeAppData();
-          const s = getCurrentScenario();
-          if (s) renderEditor();
-          else renderHome();
         }
+        // Always start from home screen after login/reload
+        app.currentScenarioId = null;
+        renderHome();
         updateSyncUI("online");
         showToast("クラウド同期が有効になりました");
       } catch (err) {
@@ -2474,11 +2474,9 @@ async function initApp() {
   // Mark hydration complete (safe to persist changes).
   __hydrated = true;
 
-
-  // Decide view
-  const s = getCurrentScenario();
-  if (s) renderEditor();
-  else renderHome();
+  // Always start from home screen on page load
+  app.currentScenarioId = null;
+  renderHome();
 }
 
 // Kick off hydration once.
@@ -6389,8 +6387,14 @@ dom.scenarioTitle.value = s.title;
 
   dom.btnBackHome.onclick = () => {
     if (isMobileLayout()) closeMobileMenu();
+    // Save any pending changes before going home
+    if (__hasDirtyChanges) { try { saveApp(); } catch {} }
     app.currentScenarioId = null;
-    initApp();
+    // Hide any leftover editor UI
+    try { dom.btnBackToEditFloating.classList.add("hidden"); } catch {}
+    try { dom.editorHeader.classList.add("hidden"); } catch {}
+    try { closeKpPanel(); } catch {}
+    renderHome();
   };
 
   dom.btnToggleMode.onclick = toggleEditMode;
