@@ -1773,6 +1773,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 <span class="char-count" id="charCount" title="現在の章の文字数">0 字</span>
 <button class="ghost mobile-only" id="btnMobileMenuOpenEditor" type="button" title="メニュー">メニュー</button>
 <button class="ghost" id="btnSearch" title="検索（Ctrl+F）">検索</button>
+<button class="primary" id="btnManualSave" type="button" title="保存（Ctrl+S）" style="font-size:13px; padding:7px 14px;">💾 保存</button>
 <button class="ghost icon-btn" id="btnExportScenario" type="button" title="JSON書き出し（このシナリオ）" aria-label="JSON書き出し（このシナリオ）">
 <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1914,15 +1915,42 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
     return tpl.innerHTML;
   }
 
-  // Debounced save to avoid heavy localStorage writes (especially when images are present).
+  // Debounced content extraction (updates in-memory app state, does NOT persist to storage).
+  // Persistence is handled by manual save button / auto-save interval / Ctrl+S.
   let __saveTimer = null;
   function scheduleScenarioSave(onContentChange, getHtml) {
     if (!onContentChange) return;
     if (__saveTimer) clearTimeout(__saveTimer);
     __saveTimer = setTimeout(() => {
       try { onContentChange(normalizeBodyForStorage(getHtml())); } catch {}
+      // Mark as dirty (unsaved changes exist)
+      __hasDirtyChanges = true;
+      try {
+        const status = document.getElementById("saveStatus");
+        if (status && __hydrated) status.textContent = "未保存";
+      } catch {}
     }, 350);
   }
+
+  // Dirty flag: tracks whether in-memory state has unsaved changes
+  let __hasDirtyChanges = false;
+
+  // Auto-save interval (60 seconds)
+  const AUTO_SAVE_INTERVAL = 60000;
+  setInterval(() => {
+    if (__hasDirtyChanges && __hydrated) {
+      try { saveApp(); } catch {}
+    }
+  }, AUTO_SAVE_INTERVAL);
+
+  // Save before leaving the page
+  window.addEventListener("beforeunload", (e) => {
+    if (__hasDirtyChanges && __hydrated) {
+      try { saveApp(); } catch {}
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
 
 
   function cleanupSortableArtifacts() {
@@ -2485,9 +2513,10 @@ function saveApp() {
   const status = document.getElementById("saveStatus");
   if (!__hydrated) { if (status) status.textContent = "未保存（読込中）"; return; }
   const onOk = () => {
+    __hasDirtyChanges = false;
     if (status) {
       status.textContent = "保存済み";
-      setTimeout(() => { try { status.textContent = ""; } catch {} }, 2000);
+      setTimeout(() => { try { if (!__hasDirtyChanges) status.textContent = ""; } catch {} }, 2000);
     }
     try { scheduleCharCountUpdate(); } catch {}
   };
@@ -5894,7 +5923,7 @@ dom.scenarioTitle.value = s.title;
         ch.title = e.target.value;
         navItem.textContent = e.target.value || "章タイトル";
         s.updatedAt = Date.now();
-        saveApp();
+        __hasDirtyChanges = true;
       };
 
       // 章削除ボタン
@@ -5987,7 +6016,7 @@ dom.scenarioTitle.value = s.title;
           sc.title = e.target.value;
           subNav.textContent = e.target.value || "シーンタイトル";
           s.updatedAt = Date.now();
-          saveApp();
+          __hasDirtyChanges = true;
         };
 
         // status/tags defaults
@@ -6007,7 +6036,7 @@ dom.scenarioTitle.value = s.title;
         statusSelect.onchange = (e) => {
           sc.status = e.target.value;
           s.updatedAt = Date.now();
-          saveApp();
+          __hasDirtyChanges = true;
         };
 
         const tagsInput = document.createElement("input");
@@ -6020,7 +6049,7 @@ dom.scenarioTitle.value = s.title;
           sc.tags = raw.split(",").map(t => t.trim()).filter(Boolean).slice(0, 30);
           renderTagChips();
           s.updatedAt = Date.now();
-          saveApp();
+          __hasDirtyChanges = true;
         };
 
         const chips = document.createElement("div");
@@ -6089,7 +6118,7 @@ dom.scenarioTitle.value = s.title;
           createQuill(editorArea, sc.body, false, (html) => {
             sc.body = html;
             s.updatedAt = Date.now();
-            saveApp();
+            __hasDirtyChanges = true;
           });
         }
 
@@ -6367,9 +6396,15 @@ dom.scenarioTitle.value = s.title;
   dom.btnToggleMode.onclick = toggleEditMode;
   try { if (dom.btnBackToEditFloating) dom.btnBackToEditFloating.onclick = toggleEditMode; } catch {}
 
+  // Manual save button
+  try {
+    const btnSave = document.getElementById("btnManualSave");
+    if (btnSave) btnSave.onclick = () => { saveApp(); showToast("保存しました"); };
+  } catch {}
+
   dom.scenarioTitle.oninput = (e) => {
     const s = getCurrentScenario();
-    if (s) { s.title = e.target.value; s.updatedAt = Date.now(); saveApp(); renderSidebarList(); }
+    if (s) { s.title = e.target.value; s.updatedAt = Date.now(); __hasDirtyChanges = true; renderSidebarList(); }
   }
 
 
