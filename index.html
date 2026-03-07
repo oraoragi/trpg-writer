@@ -744,10 +744,20 @@
 
       /* Home: keep JSON controls available (icon buttons) */
 
-      /* Editor header: keep in one row */
-      .editor-toolbar { padding: 10px 12px; gap: 8px; flex-wrap: nowrap; overflow-x: auto; }
-      .editor-toolbar .row { flex-wrap: nowrap; }
+      /* Editor header: compact mobile layout */
+      .editor-toolbar { padding: 8px 10px; gap: 6px; flex-wrap: wrap; }
+      .editor-toolbar > div:first-child { width: 100%; }
+      .editor-toolbar .row { flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
       #saveStatus { display: none !important; }
+
+      /* Hide less essential buttons on mobile */
+      .editor-toolbar #btnSearch { display: none !important; }
+      .editor-toolbar #btnExportScenario { display: none !important; }
+      .editor-toolbar #btnAddChapter { font-size: 13px; padding: 6px 10px; }
+      .editor-toolbar #btnManualSave { font-size: 13px; padding: 6px 10px; }
+
+      /* Mode toggle: shorter label on mobile */
+      .editor-toolbar .mode-toggle { font-size: 13px; padding: 8px 12px; white-space: nowrap; }
 
       /* General spacing */
       .editor-body { padding: 12px; padding-bottom: 120px; }
@@ -1704,6 +1714,16 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 }
 @media (max-width: 600px){
   .kp-inline-view{ margin: 10px 0; padding: 12px; }
+}
+/* Extra-small mobile: tighter editor toolbar */
+@media (max-width: 480px){
+  .editor-toolbar { padding: 6px 8px; }
+  .editor-toolbar #scenarioTitle { font-size: 15px !important; }
+  .editor-toolbar #btnAddChapter { font-size: 12px; padding: 5px 8px; }
+  .editor-toolbar #btnManualSave { font-size: 12px; padding: 5px 8px; }
+  .editor-toolbar .mode-toggle { font-size: 12px; padding: 7px 10px; }
+  .chapter-header { flex-wrap: wrap; gap: 6px; padding: 10px; }
+  .chapter-title-input { font-size: 15px; }
 }</style>
 </head>
 <body>
@@ -5846,7 +5866,9 @@ const ok = await copyTextToClipboard(text);
 
 dom.scenarioTitle.value = s.title;
     dom.scenarioTitle.disabled = isView;
-    dom.btnToggleMode.textContent = isView ? "編集モードに戻る" : "閲覧モード（プレイ）";
+    dom.btnToggleMode.textContent = isView
+      ? (isMobileLayout() ? "編集" : "編集モードに戻る")
+      : (isMobileLayout() ? "プレイ" : "閲覧モード（プレイ）");
     dom.btnToggleMode.classList.toggle("mode-to-play", !isView);
     dom.btnToggleMode.classList.toggle("mode-to-edit", isView);
 
