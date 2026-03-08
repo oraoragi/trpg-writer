@@ -171,13 +171,28 @@
     .home-wrap { padding: 24px; max-width: none; margin: 0; width: 100%; height:100%; overflow-y:auto; }
     .card-grid { display: grid; gap: 16px; margin-top: 20px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
     .scenario-card {
-      background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px;
-      transition: all .2s; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 10px;
+      background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 0;
+      transition: all .2s; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 0;
+      overflow: hidden;
     }
     .scenario-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: #d1d5db; }
+    .card-cover {
+      width: 100%; height: 160px; object-fit: cover; display: block; background: linear-gradient(135deg, rgba(var(--c-blue-rgb),0.15), rgba(var(--c-teal-rgb),0.10));
+    }
+    .card-cover-placeholder {
+      width: 100%; height: 160px; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, rgba(var(--c-blue-rgb),0.08), rgba(var(--c-teal-rgb),0.06));
+      color: var(--text-muted); font-size: 32px;
+    }
+    .card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
     .card-title { font-weight: 700; font-size: 16px; }
     .card-meta { font-size: 12px; color: var(--text-muted); }
     .card-actions { display: flex; gap: 8px; margin-top: auto; }
+
+    /* Cover setting in editor */
+    .cover-setting { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 0; }
+    .cover-preview { width: 80px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+    .cover-placeholder { width: 80px; height: 50px; border-radius: 6px; border: 1px dashed var(--line); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px; background: rgba(var(--c-blue-rgb),0.04); }
 
     /* --- Editor Mode Styles --- */
     .editor-toolbar {
@@ -322,6 +337,30 @@
     /* 画像サイズアップ */
     .gallery-item { position: relative; width: 280px; max-width: 100%; border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: grab; }
     .gallery-item img { display: block; width: 100%; height: auto; pointer-events: none; }
+
+    /* Sortable drag styles: clean, non-duplicated look */
+    .gallery-item.sortable-ghost {
+      opacity: 0.25;
+      border: 2px dashed var(--primary);
+      border-radius: 8px;
+      background: var(--primary-soft);
+      box-shadow: none;
+    }
+    .gallery-item.sortable-ghost img { visibility: hidden; }
+    .gallery-item.sortable-ghost .img-handle,
+    .gallery-item.sortable-ghost .img-x { display: none; }
+
+    .gallery-item.sortable-drag,
+    .sortable-fallback.gallery-item {
+      opacity: 0.92 !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.12);
+      border-radius: 10px;
+      transform: scale(0.85);
+      border: 2px solid var(--primary);
+    }
+    .gallery-item.sortable-chosen {
+      cursor: grabbing;
+    }
     .img-x {
       position: absolute; top: 6px; right: 6px; width: 24px; height: 24px;
       background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%;
@@ -1750,6 +1789,14 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 </div>
 <div class="hidden" id="editorMenu">
 <button class="ghost" id="btnBackHome" style="width:100%; justify-content:flex-start; margin-bottom:12px;">← ホームに戻る</button>
+<div class="cover-setting" id="coverSetting">
+  <div id="coverPreviewWrap"></div>
+  <div style="display:flex; flex-direction:column; gap:4px;">
+    <button class="ghost" id="btnSetCover" type="button" style="font-size:13px; padding:5px 10px;">🖼 表紙を設定</button>
+    <button class="ghost danger" id="btnRemoveCover" type="button" style="font-size:12px; padding:3px 8px; display:none;">表紙を削除</button>
+  </div>
+  <input type="file" id="coverFileInput" accept="image/*" class="hidden"/>
+</div>
 <div class="nav-list" id="scenarioListNavEditor"></div>
 <div class="nav-list" id="nav"></div>
 </div>
@@ -2056,8 +2103,8 @@ const STORAGE_KEY = "trpg_writer_ultimate_v1";
 
 // Image downscaling: keep Base64 payloads reasonable for JSON parse/render speed on mobile.
 // 1200px is a practical sweet spot for readability vs. performance.
-const IMAGE_MAX_DIM = 1200; // px
-const IMAGE_JPEG_QUALITY = 0.82;
+const IMAGE_MAX_DIM = 800; // px (1200→800 に縮小してデータ量削減)
+const IMAGE_JPEG_QUALITY = 0.65; // (0.82→0.65 に下げて圧縮強化)
 
 /**
  * Storage Adapter Layer
@@ -5893,12 +5940,18 @@ const ok = await copyTextToClipboard(text);
     app.scenarios.forEach(s => {
       const card = document.createElement("div");
       card.className = "scenario-card";
+      const coverHtml = s.coverImage
+        ? `<img class="card-cover" src="${s.coverImage}" alt="表紙"/>`
+        : `<div class="card-cover-placeholder">📖</div>`;
       card.innerHTML = `
-        <div class="card-title">${s.title}</div>
-        <div class="card-meta">最終更新: ${new Date(s.updatedAt).toLocaleString()}</div>
-        <div class="card-actions">
-          <button class="ghost" onclick="openScenario('${s.id}')">編集/閲覧</button>
-          <button class="ghost danger" onclick="deleteScenario('${s.id}')">削除</button>
+        ${coverHtml}
+        <div class="card-body">
+          <div class="card-title">${s.title}</div>
+          <div class="card-meta">最終更新: ${new Date(s.updatedAt).toLocaleString()}</div>
+          <div class="card-actions">
+            <button class="ghost" onclick="openScenario('${s.id}')">編集/閲覧</button>
+            <button class="ghost danger" onclick="deleteScenario('${s.id}')">削除</button>
+          </div>
         </div>
       `;
       dom.homeCardList.appendChild(card);
@@ -5940,6 +5993,21 @@ dom.scenarioTitle.value = s.title;
     dom.btnToggleMode.classList.toggle("mode-to-edit", isView);
 
     dom.btnAddChapter.classList.toggle("hidden", isView);
+
+    // 表紙プレビュー更新
+    try {
+      const wrap = document.getElementById("coverPreviewWrap");
+      const btnRemove = document.getElementById("btnRemoveCover");
+      if (wrap) {
+        if (s.coverImage) {
+          wrap.innerHTML = `<img class="cover-preview" src="${s.coverImage}" alt="表紙"/>`;
+          if (btnRemove) btnRemove.style.display = "";
+        } else {
+          wrap.innerHTML = `<div class="cover-placeholder">未設定</div>`;
+          if (btnRemove) btnRemove.style.display = "none";
+        }
+      }
+    } catch {}
 
     dom.nav.innerHTML = ""; // 目次リセット
 
@@ -6499,6 +6567,62 @@ dom.scenarioTitle.value = s.title;
     const s = getCurrentScenario();
     if (s) { s.title = e.target.value; s.updatedAt = Date.now(); __hasDirtyChanges = true; renderSidebarList(); }
   }
+
+  // ★ 表紙画像の設定
+  try {
+    const btnSetCover = document.getElementById("btnSetCover");
+    const btnRemoveCover = document.getElementById("btnRemoveCover");
+    const coverFileInput = document.getElementById("coverFileInput");
+
+    if (btnSetCover) btnSetCover.onclick = () => coverFileInput && coverFileInput.click();
+
+    if (coverFileInput) coverFileInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const s = getCurrentScenario();
+      if (!s) return;
+      // 表紙用に小さめにリサイズ（最大600px、品質0.6）
+      const dataUrl = await new Promise(resolve => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.readAsDataURL(file);
+      });
+      const compressed = await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const w = img.naturalWidth || img.width;
+            const h = img.naturalHeight || img.height;
+            const scale = Math.min(1, 600 / Math.max(w, h));
+            const cw = Math.max(1, Math.round(w * scale));
+            const ch = Math.max(1, Math.round(h * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = cw; canvas.height = ch;
+            const ctx = canvas.getContext('2d', { alpha: false });
+            ctx.drawImage(img, 0, 0, cw, ch);
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
+          } catch { resolve(dataUrl); }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+      s.coverImage = compressed;
+      s.updatedAt = Date.now();
+      saveApp();
+      renderEditor();
+      coverFileInput.value = "";
+    });
+
+    if (btnRemoveCover) btnRemoveCover.onclick = () => {
+      const s = getCurrentScenario();
+      if (!s) return;
+      if (!confirm("表紙画像を削除しますか？")) return;
+      delete s.coverImage;
+      s.updatedAt = Date.now();
+      saveApp();
+      renderEditor();
+    };
+  } catch {}
 
 
   /**
