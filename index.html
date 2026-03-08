@@ -5696,8 +5696,23 @@ try {
         if (!blot) return;
 
         const start = q.getIndex(blot);
+        const lineLen = blot.length();
+
+        // コピー箱のフォーマットを解除
         q.formatLine(start, 1, { copybox: false }, 'user');
+
+        // DOMからcopy-boxクラスとボタンを確実に除去
+        // （Quillがoptimize前にinnerHTMLを取得する競合を防ぐ）
+        try {
+          boxEl.classList.remove('copy-box');
+          const rmBtn = boxEl.querySelector('.copybox-remove');
+          if (rmBtn) rmBtn.remove();
+        } catch {}
+
         q.setSelection(start, 0, 'silent');
+
+        // 即座に保存をトリガー
+        try { scheduleScenarioSave(onContentChange, getHtmlForSave); } catch {}
       }, true);
 
 
