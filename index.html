@@ -212,15 +212,16 @@
     }
     .scene-block:first-child { margin-top: 0; }
     .scene-block:last-child { margin-bottom: 0; }
-    .scene-header { padding: 12px 20px; background: rgba(var(--c-blue-rgb),0.03); display: flex; align-items: center; gap: 10px; border-bottom: 1px dashed var(--line); }
+    .scene-header { padding: 12px 20px; background: rgba(var(--c-blue-rgb),0.03); display: flex; align-items: center; gap: 10px; border-bottom: 1px dashed var(--line); position: relative; }
     .scene-drag-handle { color: #d1d5db; cursor: grab; }
-    .scene-title-input { font-size: 18px; font-weight: 700; border: none; background: transparent; flex: 1; }
+    .scene-title-input { font-size: 18px; font-weight: 700; border: none; background: transparent; flex: 1; padding-right: 36px; }
 /* Scene header controls layout */
     .scene-meta-row { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
     .scene-delete-btn {
       position: absolute;
       right: 12px;
-      top: 10px;
+      top: 50%;
+      transform: translateY(-50%);
       width: 28px;
       height: 28px;
       border-radius: 8px;
@@ -233,6 +234,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+      z-index: 5;
     }
     .scene-delete-btn:hover { background: #ffe4e6; }
     /* Reserve space so meta row doesn't overlap delete button */
@@ -249,9 +251,12 @@
     /* Prevent sticky toolbar from being pushed down by parent transforms */
     .scene-block, .chapter-block, #editorBodyContainer { transform: none; }
 
-    .ql-container { border: none !important; font-size: 16px; font-family: inherit; }
+    .ql-container { border: none !important; font-size: var(--editor-fontsize, 16px); font-family: inherit; }
     .ql-editor { padding: 20px 24px; line-height: 1.7; min-height: 120px; }
     .ql-editor p { margin-bottom: 0.8em; }
+    /* View mode font size */
+    .view-content { font-size: var(--editor-fontsize, 16px); }
+    .paper-body { font-size: var(--editor-fontsize, 16px); }
 
     /* カスタムボタン（コピー箱 / 技能判定 / KPメモ） */
     .ql-toolbar button.ql-copybox,
@@ -764,7 +769,7 @@
       .chapter-header { padding: 12px; flex-wrap: wrap; gap: 10px; }
       .chapter-block > div:not(.chapter-header) { padding: 16px 12px; }
       .scene-header { padding: 10px 12px; }
-      .scene-delete-btn { right: 10px; top: 8px; }
+      .scene-delete-btn { right: 8px; }
       .ql-editor { padding: 14px 14px; }
       .gallery-item { width: 100%; }
       .view-mode-container { padding: 12px; }
@@ -876,7 +881,7 @@
   border: 1px solid rgba(var(--c-navy-rgb),0.18);
   background: var(--kp-text-bg);
   color: var(--text-main);
-  font-size: 13px;
+  font-size: var(--editor-fontsize, 16px);
   line-height: 1.6;
   padding: 8px 10px;
 }
@@ -898,7 +903,7 @@
   color: #f0f2f5;
   padding: 4px 8px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 700;
   font-family: var(--font-main);
 }
@@ -913,7 +918,7 @@
 .kp-note-title-view{
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 800;
   color: #ffffff;
   padding: 4px 0;
@@ -1076,6 +1081,7 @@
   background: var(--skill-head-bg);
   border-bottom: 1px solid var(--line);
   font-weight: 800;
+  font-size: 18px;
 }
 
 .skill-check-actions{
@@ -1105,6 +1111,7 @@
 }
 .skill-check-widget.readonly .skill-del-btn{ display: none; }
 .skill-check-head .skill-name{ font-weight: 800; }
+.skill-name-input{ font-size: 18px; font-weight: 800; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-family: var(--font-main); }
 .skill-check-body{
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1124,14 +1131,14 @@
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text-main);
-  font-size: 14px;
+  font-size: var(--editor-fontsize, 16px);
   line-height: 1.7;
 }
 .skill-text-view{
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--text-main);
-  font-size: 14px;
+  font-size: var(--editor-fontsize, 16px);
   line-height: 1.7;
   padding: 6px 2px;
 }
@@ -1152,7 +1159,7 @@
   border: none !important;                 /* 枠なし */
   background: transparent;
   color: var(--text-main);
-  font-size: 14px;
+  font-size: var(--editor-fontsize, 16px);
   line-height: 1.65;
   outline: none !important;  box-shadow: none !important;
 }
@@ -1196,7 +1203,7 @@
   border: 1px solid rgba(0,0,0,0.08);
   background: var(--kp-text-bg);
   color: var(--kp-text);
-  font-size: 14px;
+  font-size: var(--editor-fontsize, 16px);
   line-height: 1.65;
 }
 .skill-check-col.skill-flash{
@@ -1290,6 +1297,7 @@
 .skill-copy-btn{ background: rgba(255,255,255,0.9); color: #0b1220; border-color: rgba(255,255,255,0.2); }
 .skill-copy-btn:hover{ background: #ffffff; }
 .kp-secret-block{ background: #0b1220; color: var(--text-main); border-left-color: var(--accent); }
+  #fontSizeRange { accent-color: var(--primary); }
 }
 
 
@@ -1545,7 +1553,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   border: 1px solid var(--line);
   padding: 10px 10px;
   font-family: var(--font-main);
-  font-size: 14px;
+  font-size: var(--editor-fontsize, 16px);
   line-height: 1.55;
   outline: none;
 }
@@ -1647,7 +1655,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.06);
-  color: #f0f2f5; font-size: 14px; line-height: 1.65;
+  color: #f0f2f5; font-size: var(--editor-fontsize, 16px); line-height: 1.65;
   padding: 8px 10px; font-family: var(--font-main);
 }
 .scene-kp-card-body textarea:focus{
@@ -1671,8 +1679,8 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   margin-bottom: 8px; padding-bottom: 6px;
   border-bottom: 1px solid rgba(255,255,255,0.12);
 }
-.kp-inline-view-badge{ font-size: 14px; line-height: 1; }
-.kp-inline-view-title{ font-size: 14px; font-weight: 800; color: #fff; flex: 1; }
+.kp-inline-view-badge{ font-size: 18px; line-height: 1; }
+.kp-inline-view-title{ font-size: 18px; font-weight: 800; color: #fff; flex: 1; }
 .kp-inline-view-copy{
   font-size: 12px; padding: 4px 10px; border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.22);
@@ -1681,7 +1689,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 }
 .kp-inline-view-copy:hover{ background: rgba(255,255,255,0.16); }
 .kp-inline-view-body{
-  font-size: 14px; line-height: 1.75;
+  font-size: var(--editor-fontsize, 16px); line-height: 1.75;
   white-space: pre-wrap; word-break: break-word; color: #dde0e5;
 }
 .kp-hidden .kp-note{ display: none !important; }
@@ -1747,6 +1755,11 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 </div>
 </div>
 <div class="sidebar-footer">
+<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+  <label for="fontSizeRange" style="font-size:13px; color:var(--text-muted); white-space:nowrap;">文字サイズ</label>
+  <input type="range" id="fontSizeRange" min="12" max="24" step="1" value="16" style="flex:1; accent-color:var(--primary);" />
+  <span id="fontSizeValue" style="font-size:13px; color:var(--text-muted); min-width:36px; text-align:right;">16px</span>
+</div>
 <div class="sync-bar" id="syncBar">
   <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">オフライン</span></span>
   <button class="ghost" id="btnLogin" type="button">Googleでログイン</button>
@@ -2518,6 +2531,24 @@ window.addEventListener('DOMContentLoaded', () => {
       if (btnLogout) btnLogout.addEventListener("click", handleLogout);
     } catch {}
 
+    // ★ フォントサイズ選択（スライダー）
+    try {
+      const fontRange = document.getElementById("fontSizeRange");
+      const fontValue = document.getElementById("fontSizeValue");
+      const applyFontSize = (v) => {
+        document.documentElement.style.setProperty('--editor-fontsize', v + 'px');
+        if (fontValue) fontValue.textContent = v + 'px';
+        if (fontRange) fontRange.value = v;
+      };
+      const saved = localStorage.getItem("trpg_fontsize");
+      if (saved) applyFontSize(saved);
+      if (fontRange) fontRange.addEventListener("input", (e) => {
+        const v = e.target.value;
+        applyFontSize(v);
+        localStorage.setItem("trpg_fontsize", v);
+      });
+    } catch {}
+
     updateSyncUI("offline");
 
     void initApp();
@@ -2862,6 +2893,18 @@ function ensureKpMemos(s){
 }
 
 // --- KP Anchor (Quill embed) --- (Quill embed) ---
+
+  // ★ Quill: Enter を常に <br>（段内改行）にする
+  // デフォルトの <p> ブロック改行を無効化し、Shift+Enter と同じ挙動にする
+  (function forceBreakLineMode(){
+    try {
+      const Block = Quill.import('blots/block');
+      class DivBlock extends Block {}
+      DivBlock.tagName = 'DIV';
+      Quill.register(DivBlock, true);
+    } catch(e) { console.warn('DivBlock registration failed:', e); }
+  })();
+
   (function registerKpAnchorBlot(){
     try{
       const Embed = Quill.import('blots/embed');
@@ -5093,6 +5136,15 @@ function createQuill(container, content, isView, onContentChange) {
 
     if (content) q.clipboard.dangerouslyPasteHTML(content);
 
+    // ★ ペースト時に <p> を段内改行に変換する
+    try {
+      const Delta = Quill.import('delta');
+      q.clipboard.addMatcher('P', (node, delta) => {
+        // <p>の内容をそのまま返し、末尾に改行1つ追加（段落間に空行を入れない）
+        return delta.compose(new Delta().retain(delta.length()).insert('\n'));
+      });
+    } catch {}
+
     // Widgets (技能判定 / KPメモ) の操作・保存・コピー
     setupSkillAndKpWidgets(q, onContentChange, isView);
 
@@ -5795,6 +5847,7 @@ const ok = await copyTextToClipboard(text);
       const makeItem = () => {
         const item = document.createElement("div");
         item.className = "nav-item";
+        if (s.id === app.currentScenarioId) item.classList.add("active");
         item.textContent = s.title;
         item.onclick = () => {
           openScenario(s.id);
@@ -5803,9 +5856,23 @@ const ok = await copyTextToClipboard(text);
         return item;
       };
 
+      // ホーム画面用：全シナリオ表示
       dom.scenarioListNav.appendChild(makeItem());
-      try { if (dom.scenarioListNavEditor) dom.scenarioListNavEditor.appendChild(makeItem()); } catch {}
+      // エディタ用：選択中のシナリオのみ表示
+      // (目次は別の #nav 要素で表示されるので、ここでは現在のシナリオ名だけ)
     });
+
+    // エディタ用サイドバーに現在のシナリオ名を表示
+    if (dom.scenarioListNavEditor && app.currentScenarioId) {
+      const cur = app.scenarios.find(sc => sc.id === app.currentScenarioId);
+      if (cur) {
+        const item = document.createElement("div");
+        item.className = "nav-item active";
+        item.style.fontWeight = "700";
+        item.textContent = cur.title;
+        dom.scenarioListNavEditor.appendChild(item);
+      }
+    }
   }
 // ホーム画面
   function renderHome() {
