@@ -276,7 +276,8 @@
     /* カスタムボタン（コピー箱 / 技能判定 / KPメモ） */
     .ql-toolbar button.ql-copybox,
     .ql-toolbar button.ql-skillcheck,
-    .ql-toolbar button.ql-kpnote{
+    .ql-toolbar button.ql-kpnote,
+    .ql-toolbar button.ql-pctag{
       min-width: 40px;
       height: 40px;
       padding: 0 !important;
@@ -290,10 +291,12 @@
     .ql-toolbar button.ql-copybox{ color: var(--primary); }
     .ql-toolbar button.ql-skillcheck{ color: var(--primary); }
     .ql-toolbar button.ql-kpnote{ color: var(--danger); }
+    .ql-toolbar button.ql-pctag{ color: var(--accent); }
 
     .ql-toolbar button.ql-copybox::before { content: "📋"; }
     .ql-toolbar button.ql-skillcheck::before { content: "🎲"; }
     .ql-toolbar button.ql-kpnote::before { content: "🔒"; }
+    .ql-toolbar button.ql-pctag::before { content: "👤"; }
 /* Toolbar button sizing */
 .ql-toolbar .ql-formats button{ min-width: 40px; height: 40px; }
 .ql-toolbar .ql-formats button svg{ width: 20px; height: 20px; }
@@ -1771,7 +1774,62 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   .editor-toolbar .mode-toggle { font-size: 12px; padding: 7px 10px; }
   .chapter-header { flex-wrap: wrap; gap: 6px; padding: 10px; }
   .chapter-title-input { font-size: 15px; }
-}</style>
+}
+
+/* --- Explorer (PC) Tag --- */
+.pc-tag{
+  display: inline;
+  padding: 1px 6px;
+  margin: 0 4px;
+  border-radius: 4px;
+  background: rgba(var(--c-teal-rgb), 0.15);
+  border: 1px solid rgba(var(--c-teal-rgb), 0.35);
+  color: var(--c-teal);
+  font-weight: 700;
+  font-size: 0.9em;
+  white-space: nowrap;
+  user-select: all;
+  cursor: default;
+}
+.pc-tag::before{ content: "👤 "; font-size: 0.85em; }
+/* View mode: replaced tag */
+.pc-tag-resolved{
+  display: inline;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(var(--c-teal-rgb), 0.12);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: inherit;
+}
+/* Explorer settings in sidebar */
+.pc-settings{ margin: 10px 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: rgba(var(--c-blue-rgb),0.03); }
+.pc-settings-title{ font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; display:flex; align-items:center; gap:6px; }
+.pc-row{ display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.pc-row .pc-label{ font-size: 13px; font-weight: 700; color: var(--accent); min-width: 28px; }
+.pc-row input{ flex:1; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); font-size: 13px; }
+.pc-row button{ padding: 3px 8px; font-size: 12px; }
+.pc-add-btn{ width: 100%; font-size: 13px; padding: 5px; margin-top: 4px; }
+/* PC tag select popup */
+.pc-tag-popup{
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-float);
+  padding: 8px;
+  min-width: 160px;
+}
+.pc-tag-popup-item{
+  display: block; width: 100%;
+  padding: 8px 12px;
+  border: none; background: transparent;
+  text-align: left; font-size: 14px; font-weight: 600;
+  border-radius: 6px; cursor: pointer;
+  color: var(--text-main);
+}
+.pc-tag-popup-item:hover{ background: var(--primary-soft); color: var(--primary); }</style>
 </head>
 <body>
 <div id="fatalOverlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);color:#fff;display:none;overflow:auto;padding:20px;font-family:monospace;white-space:pre-wrap;"></div>
@@ -1798,6 +1856,13 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   <input type="file" id="coverFileInput" accept="image/*" class="hidden"/>
 </div>
 <div class="nav-list" id="scenarioListNavEditor"></div>
+<div id="pcSettings" class="pc-settings" style="display:none;">
+  <div class="pc-settings-title" id="pcSettingsToggle" style="cursor:pointer; user-select:none;">👤 探索者設定 <span id="pcSettingsArrow" style="font-size:11px;">▼</span></div>
+  <div id="pcSettingsBody">
+    <div id="pcList"></div>
+    <button class="ghost pc-add-btn" id="btnPcAdd" type="button">＋ 探索者を追加</button>
+  </div>
+</div>
 <div class="nav-list" id="nav"></div>
 </div>
 </div>
@@ -2950,6 +3015,31 @@ function ensureKpMemos(s){
       DivBlock.tagName = 'DIV';
       Quill.register(DivBlock, true);
     } catch(e) { console.warn('DivBlock registration failed:', e); }
+  })();
+
+  // ★ 探索者タグ Blot（インライン埋め込み）
+  (function registerPcTagBlot(){
+    try {
+      const InlineEmbed = Quill.import('blots/embed');
+      class PcTagBlot extends InlineEmbed {
+        static blotName = 'pctag';
+        static tagName = 'SPAN';
+        static className = 'pc-tag';
+        static create(value) {
+          const node = super.create();
+          const label = (typeof value === 'string') ? value : (value && value.label || 'A');
+          node.setAttribute('data-pc-label', label);
+          node.setAttribute('contenteditable', 'false');
+          node.textContent = '探索者' + label;
+          return node;
+        }
+        static value(node) {
+          return node.getAttribute('data-pc-label') || 'A';
+        }
+        // Quill embed: length=1で前後にカーソルが置ける
+      }
+      Quill.register(PcTagBlot, true);
+    } catch(e) { console.warn('PcTagBlot registration failed:', e); }
   })();
 
   (function registerKpAnchorBlot(){
@@ -5104,7 +5194,7 @@ function createQuill(container, content, isView, onContentChange) {
         ['bold', 'italic', 'underline', 'strike', { 'color': [] }, { 'background': [] }],
         [{ 'list': 'ordered'}, { 'list': 'bullet' }],
         ['link', 'image'],
-        ['copybox', 'skillcheck', 'kpnote'], // ★カスタムボタン
+        ['copybox', 'skillcheck', 'kpnote', 'pctag'], // ★カスタムボタン
         ['clean']
       ]
     };
@@ -5117,7 +5207,7 @@ function createQuill(container, content, isView, onContentChange) {
       formats: [
         'header','size','bold','italic','underline','strike','color','background',
         'list','link','image',
-        'copybox','break','softbreak','imgGallery','skillcheck','kpnote','kpanchor'
+        'copybox','break','softbreak','imgGallery','skillcheck','kpnote','kpanchor','pctag'
       ]
     });
       try{ attachKpAnchorSafety(q); }catch{}
@@ -5155,6 +5245,12 @@ function createQuill(container, content, isView, onContentChange) {
               d.insert({ softbreak: true });
               return;
             }
+            // ★ 探索者タグを保持する
+            if (el.classList && el.classList.contains('pc-tag')) {
+              const label = el.getAttribute('data-pc-label') || 'A';
+              d.insert({ pctag: label });
+              return;
+            }
             // Flatten children (copy-box 内は基本的にプレーンテキスト想定)
             Array.from(el.childNodes || []).forEach(walk);
           }
@@ -5176,6 +5272,19 @@ function createQuill(container, content, isView, onContentChange) {
         // End the copy-box block with a single newline formatted as copybox
         d.insert('\n', { copybox: true });
         return d;
+      });
+
+      // ★ 探索者タグのclipboard matcher（HTML読み込み時にpc-tagを認識させる）
+      q.clipboard.addMatcher('span.pc-tag', (node) => {
+        const label = node.getAttribute('data-pc-label') || 'A';
+        return new Delta().insert({ pctag: label });
+      });
+
+      // ★ 閲覧モードで置換されたpc-tag-resolvedもmatch（閲覧→編集復帰対策）
+      q.clipboard.addMatcher('span.pc-tag-resolved', (node) => {
+        const title = node.getAttribute('title') || '';
+        const label = title.replace('探索者', '').trim() || 'A';
+        return new Delta().insert({ pctag: label });
       });
     } catch {
       // If Delta import fails for some reason, fall back to Quill default behavior.
@@ -5319,34 +5428,46 @@ function createQuill(container, content, isView, onContentChange) {
           inCopybox = !!(dom && dom.classList && dom.classList.contains('copy-box'));
         } catch {}
 
-        // 選択範囲がある場合：選択テキスト（複数行OK）を「1つのコピー箱（1ブロック）」に変換
+        // 選択範囲がある場合：選択内容（embed含む）を「1つのコピー箱」に変換
         if (range.length > 0) {
-          let text = q.getText(range.index, range.length);
-          // 末尾の改行（Quillの行末）を除去
-          if (text.endsWith('\n')) text = text.slice(0, -1);
+          // Deltaで取得（探索者タグなどのembedも保持）
+          const contents = q.getContents(range.index, range.length);
 
           // 選択部分を削除
           q.deleteText(range.index, range.length, 'user');
 
-          // コピー箱用の「1行」を確保（後からこの改行の前に本文を流し込む）
+          // コピー箱用の「1行」を確保
           q.insertText(range.index, '\n', 'user');
           q.formatLine(range.index, 1, { copybox: true }, 'user');
 
+          // Delta opsを走査して内容を再挿入
           let insertAt = range.index;
-          if (text.length) {
-            const lines = text.split('\n');
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i]) {
-                q.insertText(insertAt, lines[i], 'user');
-                insertAt += lines[i].length;
+          for (const op of (contents.ops || [])) {
+            if (typeof op.insert === 'string') {
+              let text = op.insert;
+              // 末尾の改行は除去（最後のopの場合）
+              if (text.endsWith('\n')) text = text.slice(0, -1);
+              if (!text) continue;
+              const lines = text.split('\n');
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i]) {
+                  q.insertText(insertAt, lines[i], 'user');
+                  insertAt += lines[i].length;
+                }
+                if (i < lines.length - 1) {
+                  q.insertEmbed(insertAt, 'softbreak', true, 'user');
+                  insertAt += 1;
+                }
               }
-              if (i < lines.length - 1) {
-                q.insertEmbed(insertAt, 'softbreak', true, 'user');
-                insertAt += 1;
-              }
+            } else if (op.insert && typeof op.insert === 'object') {
+              // embed（pctag, softbreak等）
+              const embedType = Object.keys(op.insert)[0];
+              const embedValue = op.insert[embedType];
+              q.insertEmbed(insertAt, embedType, embedValue, 'user');
+              insertAt += 1;
             }
           }
-          // Avoid generating an extra empty line after the copy-box.
+          // 余分な空行を除去
           try {
             const next2 = q.getText(insertAt, 2);
             if (next2 && next2.startsWith("\n\n")) {
@@ -5357,7 +5478,7 @@ function createQuill(container, content, isView, onContentChange) {
           return;
         }
 
-        // 選択なし：カーソル行をコピー箱化（空白行を余計に作らない）
+        // 選択なし：カーソル行をコピー箱化
         if (!inCopybox) {
           q.formatLine(range.index, 1, { copybox: true }, 'user');
         }
@@ -5432,6 +5553,57 @@ toolbar.addHandler('kpnote', () => {
 });
 
 // Tooltips (hover to explain)
+
+// 👤 探索者タグ挿入（ポップアップで選択）
+toolbar.addHandler('pctag', () => {
+  const s = getCurrentScenario();
+  if (!s) return;
+  const pcs = s.explorers || [];
+  if (pcs.length === 0) {
+    showToast("先に左メニューから探索者を追加してください");
+    return;
+  }
+  // ポップアップを表示
+  const existing = document.getElementById("pcTagPopup");
+  if (existing) existing.remove();
+
+  const popup = document.createElement("div");
+  popup.id = "pcTagPopup";
+  popup.className = "pc-tag-popup";
+
+  pcs.forEach(pc => {
+    const btn = document.createElement("button");
+    btn.className = "pc-tag-popup-item";
+    btn.textContent = `👤 探索者${pc.label}` + (pc.name ? ` (${pc.name})` : '');
+    btn.onclick = () => {
+      popup.remove();
+      const range = q.getSelection(true) || { index: q.getLength(), length: 0 };
+      q.insertEmbed(range.index, 'pctag', pc.label, 'user');
+      q.setSelection(range.index + 1, 0, 'silent');
+    };
+    popup.appendChild(btn);
+  });
+
+  // Position near the toolbar button
+  const tbBtn = q.container.closest('.scene-block')?.querySelector('.ql-pctag');
+  if (tbBtn) {
+    const rect = tbBtn.getBoundingClientRect();
+    popup.style.top = (rect.bottom + 4) + 'px';
+    popup.style.left = Math.max(8, rect.left - 40) + 'px';
+  } else {
+    popup.style.top = '100px';
+    popup.style.left = '100px';
+  }
+
+  document.body.appendChild(popup);
+  // Close on outside click
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('pointerdown', closeHandler, true); }
+    };
+    document.addEventListener('pointerdown', closeHandler, true);
+  }, 10);
+});
 try {
   const tb = toolbar && toolbar.container ? toolbar.container : null;
   if (tb) {
@@ -5498,10 +5670,15 @@ try {
         e.preventDefault();
         e.stopPropagation();
 
-        const currentLength = q.getLength();
-
-        q.insertEmbed(range.index, 'softbreak', true, 'user');
-        q.setSelection(Math.min(range.index + 1, currentLength), 0, 'silent');
+        // コピー箱内ではsoftbreak、通常はQuillの改行（新ブロック）を使う
+        if (inCopybox) {
+          q.insertEmbed(range.index, 'softbreak', true, 'user');
+          q.setSelection(range.index + 1, 0, 'silent');
+        } else {
+          // 通常の改行：新しい行を挿入
+          q.insertText(range.index, '\n', 'user');
+          q.setSelection(range.index + 1, 0, 'silent');
+        }
 }, true);
 
 // コピー箱解除ボタン（その箱だけ解除して中身は残す）
@@ -6009,6 +6186,17 @@ dom.scenarioTitle.value = s.title;
       }
     } catch {}
 
+    // 探索者設定の更新
+    try {
+      const pcSettingsEl = document.getElementById("pcSettings");
+      const pcListEl = document.getElementById("pcList");
+      if (pcSettingsEl && pcListEl) {
+        pcSettingsEl.style.display = "";
+        if (!s.explorers) s.explorers = [];
+        renderPcList(s);
+      }
+    } catch {}
+
     dom.nav.innerHTML = ""; // 目次リセット
 
     if (isView) {
@@ -6480,6 +6668,8 @@ dom.scenarioTitle.value = s.title;
 
       // View mode: render saved HTML directly (avoid Quill clipboard sanitization that can drop custom blocks)
       contentDiv.innerHTML = safeHTMLForView(sc.body);
+      // 探索者タグを名前に置換
+      replacePcTagsInView(contentDiv, s);
       applyKpNoteShiftsInView(contentDiv);
       // Remove edit-only controls if they exist
       contentDiv.querySelectorAll('.copybox-remove').forEach(el => el.remove());
@@ -6490,6 +6680,75 @@ dom.scenarioTitle.value = s.title;
     body.appendChild(chDiv);
     dom.paperContent.appendChild(body);
 }
+
+  // ★ 探索者タグ関連
+  function renderPcList(s) {
+    const pcListEl = document.getElementById("pcList");
+    if (!pcListEl) return;
+    pcListEl.innerHTML = "";
+    if (!s.explorers) s.explorers = [];
+
+    s.explorers.forEach((pc, i) => {
+      const row = document.createElement("div");
+      row.className = "pc-row";
+      row.innerHTML = `
+        <span class="pc-label">${escapeHtml(pc.label)}</span>
+        <input type="text" value="${escapeHtml(pc.name || '')}" placeholder="名前を入力" data-pc-idx="${i}" />
+        <button class="ghost danger" data-pc-del="${i}" style="padding:3px 6px; font-size:11px;">×</button>
+      `;
+      pcListEl.appendChild(row);
+    });
+
+    // イベント委譲
+    pcListEl.querySelectorAll("input[data-pc-idx]").forEach(inp => {
+      inp.addEventListener("input", (e) => {
+        const idx = parseInt(e.target.dataset.pcIdx, 10);
+        if (s.explorers[idx]) {
+          s.explorers[idx].name = e.target.value;
+          s.updatedAt = Date.now();
+          __hasDirtyChanges = true;
+        }
+      });
+    });
+    pcListEl.querySelectorAll("button[data-pc-del]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const idx = parseInt(e.target.dataset.pcDel, 10);
+        if (confirm(`探索者${s.explorers[idx]?.label}を削除しますか？`)) {
+          s.explorers.splice(idx, 1);
+          s.updatedAt = Date.now();
+          saveApp();
+          renderPcList(s);
+        }
+      });
+    });
+  }
+
+  function getNextPcLabel(explorers) {
+    // A, B, C, ... の次の空きラベルを返す
+    const used = new Set((explorers || []).map(e => e.label));
+    for (let i = 0; i < 26; i++) {
+      const label = String.fromCharCode(65 + i);
+      if (!used.has(label)) return label;
+    }
+    return "X";
+  }
+
+  function replacePcTagsInView(container, scenario) {
+    if (!container || !scenario) return;
+    const pcs = scenario.explorers || [];
+    const map = new Map();
+    pcs.forEach(pc => map.set(pc.label, pc.name || ('探索者' + pc.label)));
+
+    container.querySelectorAll('.pc-tag').forEach(tag => {
+      const label = tag.getAttribute('data-pc-label') || tag.textContent.replace('探索者','').trim();
+      const name = map.get(label) || ('探索者' + label);
+      const resolved = document.createElement('span');
+      resolved.className = 'pc-tag-resolved';
+      resolved.textContent = name;
+      resolved.title = '探索者' + label;
+      tag.replaceWith(resolved);
+    });
+  }
 
   /**
    * Actions
@@ -6622,6 +6881,35 @@ dom.scenarioTitle.value = s.title;
       saveApp();
       renderEditor();
     };
+  } catch {}
+
+  // ★ 探索者追加ボタン
+  try {
+    const btnPcAdd = document.getElementById("btnPcAdd");
+    if (btnPcAdd) btnPcAdd.onclick = () => {
+      const s = getCurrentScenario();
+      if (!s) return;
+      if (!s.explorers) s.explorers = [];
+      const label = getNextPcLabel(s.explorers);
+      s.explorers.push({ label, name: "" });
+      s.updatedAt = Date.now();
+      saveApp();
+      renderPcList(s);
+    };
+  } catch {}
+
+  // ★ 探索者設定の折りたたみ
+  try {
+    const pcToggle = document.getElementById("pcSettingsToggle");
+    const pcBody = document.getElementById("pcSettingsBody");
+    const pcArrow = document.getElementById("pcSettingsArrow");
+    if (pcToggle && pcBody) {
+      pcToggle.onclick = () => {
+        const isHidden = pcBody.style.display === "none";
+        pcBody.style.display = isHidden ? "" : "none";
+        if (pcArrow) pcArrow.textContent = isHidden ? "▼" : "▶";
+      };
+    }
   } catch {}
 
 
