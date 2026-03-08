@@ -255,7 +255,7 @@
     /* Reserve space so meta row doesn't overlap delete button */
     .scene-header .scene-meta-row { padding-right: 40px; }
 /* Quill Customization (Editor) */
-    .ql-toolbar { border: none !important; background: #f9fafb; border-bottom: 1px solid var(--line) !important; padding: 10px 14px !important; }
+    .ql-toolbar { border: none !important; background: #f9fafb; border-bottom: 1px solid var(--line) !important; padding: 8px 10px !important; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
     /* Quill toolbar should stay visible while scrolling */
     .scene-block .ql-toolbar { position: sticky; top: 0; z-index: 120; background: #fff; }
     /* Sticky toolbar should align to the top of the editor area */
@@ -273,20 +273,45 @@
     .view-content { font-size: var(--editor-fontsize, 16px); }
     .paper-body { font-size: var(--editor-fontsize, 16px); }
 
-    /* カスタムボタン（コピー箱 / 技能判定 / KPメモ） */
+    /* Picker（プルダウン）の幅を縮める */
+    .ql-snow .ql-picker.ql-header { width: 72px; }
+    .ql-snow .ql-picker.ql-size { width: 52px; }
+    .ql-snow .ql-picker .ql-picker-label { padding: 0 4px; }
+
+    /* Color / Background picker のアイコン位置・サイズ合わせ */
+    .ql-snow .ql-color-picker {
+      height: 36px;
+      display: inline-flex !important;
+      align-items: center;
+    }
+    .ql-snow .ql-color-picker .ql-picker-label {
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      width: 36px;
+    }
+    .ql-snow .ql-color-picker .ql-picker-label svg {
+      width: 18px !important;
+      height: 18px !important;
+      vertical-align: middle;
+    }
+
+    /* カスタムボタン（コピー箱 / 技能判定 / KPメモ / 探索者） */
     .ql-toolbar button.ql-copybox,
     .ql-toolbar button.ql-skillcheck,
     .ql-toolbar button.ql-kpnote,
     .ql-toolbar button.ql-pctag{
-      min-width: 40px;
-      height: 40px;
+      min-width: 36px;
+      height: 36px;
       padding: 0 !important;
       display: inline-flex !important;
       align-items: center;
       justify-content: center;
       line-height: 1;
-      font-size: 22px !important; /* 絵文字サイズ */
-      border-radius: 10px;
+      font-size: 20px !important;
+      border-radius: 8px;
     }
     .ql-toolbar button.ql-copybox{ color: var(--primary); }
     .ql-toolbar button.ql-skillcheck{ color: var(--primary); }
@@ -298,9 +323,28 @@
     .ql-toolbar button.ql-kpnote::before { content: "🔒"; }
     .ql-toolbar button.ql-pctag::before { content: "👤"; }
 /* Toolbar button sizing */
-.ql-toolbar .ql-formats button{ min-width: 40px; height: 40px; }
-.ql-toolbar .ql-formats button svg{ width: 20px; height: 20px; }
-.ql-toolbar .ql-formats .ql-picker-label{ height: 40px; }
+.ql-toolbar .ql-formats{ display: inline-flex; align-items: center; gap: 1px; margin-right: 6px; }
+.ql-toolbar .ql-formats button{ min-width: 36px; height: 36px; padding: 0; }
+.ql-toolbar .ql-formats button svg{ width: 18px; height: 18px; }
+.ql-toolbar .ql-formats .ql-picker-label{ height: 36px; display: inline-flex; align-items: center; }
+.ql-toolbar .ql-formats .ql-picker{ height: 36px; }
+
+/* --- Mobile toolbar: 折りたたみ --- */
+.ql-toolbar .ql-formats.tb-extra { display: inline-flex; }
+.tb-toggle-btn {
+  display: none !important; /* デスクトップでは常に非表示 */
+  min-width: 36px; height: 36px;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: #fff; cursor: pointer;
+  font-size: 16px;
+  align-items: center; justify-content: center;
+  color: var(--text-muted); font-weight: 700;
+}
+@media (max-width: 820px) {
+  .ql-toolbar .ql-formats.tb-extra { display: none !important; }
+  .ql-toolbar .ql-formats.tb-extra.tb-show { display: inline-flex !important; flex-wrap: wrap; }
+  .tb-toggle-btn { display: inline-flex !important; }
+}
 
 /* Quill picker labels (Japanese) */
 .ql-snow .ql-picker.ql-header .ql-picker-label::before,
@@ -5191,10 +5235,10 @@ function createQuill(container, content, isView, onContentChange) {
     const toolbarOptions = isView ? false : {
       container: [
         [{ 'header': [1, 2, 3, false] }, { 'size': ['small', false, 'large', 'huge'] }],
-        ['bold', 'italic', 'underline', 'strike', { 'color': [] }, { 'background': [] }],
+        ['bold', 'italic', 'underline', { 'color': [] }, { 'background': [] }],
         [{ 'list': 'ordered'}, { 'list': 'bullet' }],
         ['link', 'image'],
-        ['copybox', 'skillcheck', 'kpnote', 'pctag'], // ★カスタムボタン
+        ['copybox', 'skillcheck', 'kpnote', 'pctag'],
         ['clean']
       ]
     };
@@ -5351,6 +5395,33 @@ function createQuill(container, content, isView, onContentChange) {
 
     if (!isView) {
       const toolbar = q.getModule('toolbar');
+
+      // ★ モバイル折りたたみ：2番目以降のql-formatsグループを折りたたみ対象にする
+      try {
+        const tbEl = toolbar.container;
+        if (tbEl) {
+          const groups = tbEl.querySelectorAll('.ql-formats');
+          // 最初の2グループ（見出し/サイズ + B/I/U/色）は常に表示、残りは折りたたみ
+          groups.forEach((g, i) => {
+            if (i >= 2) g.classList.add('tb-extra');
+          });
+          // トグルボタンを追加
+          const toggleBtn = document.createElement('button');
+          toggleBtn.type = 'button';
+          toggleBtn.className = 'tb-toggle-btn';
+          toggleBtn.textContent = '⋯';
+          toggleBtn.title = 'メニューを展開';
+          toggleBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const extras = tbEl.querySelectorAll('.tb-extra');
+            const isShown = extras[0] && extras[0].classList.contains('tb-show');
+            extras.forEach(g => g.classList.toggle('tb-show', !isShown));
+            toggleBtn.textContent = isShown ? '⋯' : '✕';
+          });
+          tbEl.appendChild(toggleBtn);
+        }
+      } catch {}
       // 画像ボタン
       toolbar.addHandler('image', () => {
         const input = document.createElement('input');
