@@ -2717,9 +2717,18 @@ async function onAuthStateChanged(user) {
 
     // ローカルからデータを再読み込み（initAppより後にonAuthStateChangedが呼ばれる場合に対応）
     try {
-      const loaded = await asPromise(localAdapter.load(STORAGE_KEY));
+      let loaded = null;
+      try { loaded = await asPromise(localAdapter.load(STORAGE_KEY)); } catch {}
+
+      // フォールバック: localStorage直接読み込み
+      if (!loaded || !Array.isArray(loaded.scenarios)) {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) loaded = JSON.parse(raw);
+        } catch {}
+      }
+
       if (loaded && typeof loaded === "object" && Array.isArray(loaded.scenarios)) {
-        // 現在のappより新しい/多いデータがあれば採用
         const scoreApp = (v) => {
           if (!v || !Array.isArray(v.scenarios)) return -1;
           let s = v.scenarios.length ? 10 + v.scenarios.length : 0;
@@ -2800,6 +2809,14 @@ async function initApp() {
   } catch (err) {
     try { console.warn("initApp localStorage load failed:", err); } catch {}
     loadedLs = null;
+  }
+
+  // ★ localStorage直接読み込み（アダプタ経由で失敗するケースの最終フォールバック）
+  if (!loadedLs) {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) loadedLs = JSON.parse(raw);
+    } catch {}
   }
 
   // Pick best payload
@@ -2917,6 +2934,9 @@ function saveApp() {
     if (status) status.textContent = "保存中…";
     const r = __storageAdapter.save(STORAGE_KEY, app);
     asPromise(r).then(onOk).catch(onFail);
+
+    // ★ 常にlocalStorageにもバックアップ保存（IndexedDB障害やアダプタ切替時のデータ損失を防止）
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); } catch {}
   } catch (err) {
     onFail(err);
   }
