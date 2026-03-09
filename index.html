@@ -196,49 +196,48 @@
 
     /* --- Editor Mode Styles --- */
     .editor-toolbar {
-      padding: 12px 20px; background: #fff; border-bottom: 1px solid var(--line);
+      padding: 10px 20px; background: var(--bg-panel); border-bottom: 1px solid var(--line);
       position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
-    .editor-body { padding: 20px; max-width: none; margin: 0; width: 100%; padding-bottom: 100px; }
-    /* Editor mode: calm dark navy background behind chapter/scene cards */
-    #editorBodyContainer { background: #e9eff3; }
+    .editor-body { padding: 24px; max-width: none; margin: 0; width: 100%; padding-bottom: 100px; }
+    /* Editor mode: soft gradient background */
+    #editorBodyContainer { background: linear-gradient(180deg, #e8edf2 0%, #dfe5ec 100%); }
 
     
-    .chapter-block { margin-bottom: 40px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); overflow: visible; box-shadow: var(--shadow-sm); }
-    .chapter-header { padding: 16px 20px; background: rgba(var(--c-blue-rgb),0.04); border-bottom: 1px solid var(--line); display:flex; align-items:center; gap:12px; justify-content:space-between; }
-    .chapter-title-input { font-size: 18px; font-weight: 700; border: 1px solid transparent; background: transparent; padding: 4px; margin: -5px; }
-    .chapter-title-input:focus { background: #fff; border-color: var(--line); }
+    .chapter-block { margin-bottom: 32px; background: var(--bg-panel); border: 1px solid rgba(var(--c-navy-rgb),0.10); border-radius: 16px; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02); }
+    .chapter-header { padding: 14px 20px; background: linear-gradient(135deg, rgba(var(--c-blue-rgb),0.05), rgba(var(--c-teal-rgb),0.03)); border-bottom: 1px solid var(--line); display:flex; align-items:center; gap:12px; justify-content:space-between; border-radius: 16px 16px 0 0; }
+    .chapter-title-input { font-size: 18px; font-weight: 700; border: 1px solid transparent; background: transparent; padding: 6px 8px; border-radius: 8px; }
+    .chapter-title-input:focus { background: #fff; border-color: rgba(var(--c-blue-rgb),0.25); box-shadow: 0 0 0 3px rgba(var(--c-blue-rgb),0.08); }
 
     /* Scene container background so gaps between scenes are visible */
     .chapter-block > div:not(.chapter-header){
-      background: #f0f2f5;
-      padding: 24px 20px;
+      background: rgba(var(--c-navy-rgb),0.03);
+      padding: 20px;
     }
 
     /* Scene separation: make boundaries clearer */
     .scene-block {
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
+      background: var(--bg-panel);
+      border: 1px solid rgba(var(--c-navy-rgb),0.08);
+      border-radius: 14px;
       overflow: visible;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-      margin: 18px 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+      margin: 14px 0;
+      transition: box-shadow 0.2s;
     }
+    .scene-block:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     .scene-block:first-child { margin-top: 0; }
     .scene-block:last-child { margin-bottom: 0; }
-    .scene-header { padding: 12px 20px; background: rgba(var(--c-blue-rgb),0.03); display: flex; align-items: center; gap: 10px; border-bottom: 1px dashed var(--line); position: relative; }
-    .scene-drag-handle { color: #d1d5db; cursor: grab; }
-    .scene-title-input { font-size: 18px; font-weight: 700; border: none; background: transparent; flex: 1; padding-right: 36px; }
+    .scene-header { padding: 10px 18px; background: rgba(var(--c-blue-rgb),0.02); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.07); position: relative; border-radius: 14px 14px 0 0; }
+    .scene-drag-handle { color: #c5cbd3; cursor: grab; }
+    .scene-title-input { font-size: 17px; font-weight: 700; border: none; background: transparent; flex: 1; padding-right: 36px; }
 /* Scene header controls layout */
     .scene-meta-row { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
     .scene-delete-btn {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
       width: 28px;
       height: 28px;
+      min-width: 28px;
       border-radius: 8px;
       border: 1px solid #fecaca;
       background: #fff1f2;
@@ -249,15 +248,14 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      z-index: 5;
+      flex-shrink: 0;
+      margin-left: auto;
     }
     .scene-delete-btn:hover { background: #ffe4e6; }
-    /* Reserve space so meta row doesn't overlap delete button */
-    .scene-header .scene-meta-row { padding-right: 40px; }
 /* Quill Customization (Editor) */
-    .ql-toolbar { border: none !important; background: #f9fafb; border-bottom: 1px solid var(--line) !important; padding: 8px 10px !important; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+    .ql-toolbar { border: none !important; background: rgba(var(--c-navy-rgb),0.02); border-bottom: 1px solid rgba(var(--c-navy-rgb),0.07) !important; padding: 6px 10px !important; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
     /* Quill toolbar should stay visible while scrolling */
-    .scene-block .ql-toolbar { position: sticky; top: 0; z-index: 120; background: #fff; }
+    .scene-block .ql-toolbar { position: sticky; top: 0; z-index: 120; background: var(--bg-panel); border-radius: 0; }
     /* Sticky toolbar should align to the top of the editor area */
     .scene-block .ql-toolbar {
       left: 0;
@@ -322,6 +320,15 @@
     .ql-toolbar button.ql-skillcheck::before { content: "🎲"; }
     .ql-toolbar button.ql-kpnote::before { content: "🔒"; }
     .ql-toolbar button.ql-pctag::before { content: "👤"; }
+    /* Undo / Redo */
+    .ql-toolbar button.ql-undo,
+    .ql-toolbar button.ql-redo {
+      min-width: 36px; height: 36px; padding: 0 !important;
+      display: inline-flex !important; align-items: center; justify-content: center;
+      font-size: 16px !important; border-radius: 8px; color: var(--text-muted);
+    }
+    .ql-toolbar button.ql-undo::before { content: "↩"; }
+    .ql-toolbar button.ql-redo::before { content: "↪"; }
 /* Toolbar button sizing */
 .ql-toolbar .ql-formats{ display: inline-flex; align-items: center; gap: 1px; margin-right: 6px; }
 .ql-toolbar .ql-formats button{ min-width: 36px; height: 36px; padding: 0; }
@@ -469,56 +476,78 @@
     /* --- View Mode (Session Mode) --- */
     /* 全体レイアウト */
     .view-mode-container {
-      background: var(--c-navy);
-      padding: 20px;
+      background: linear-gradient(160deg, var(--c-navy) 0%, #0c1e38 50%, #102a4a 100%);
+      padding: 24px;
       min-height: 100%;
     }
-    .paper { width: 100%; max-width: none; margin: 0; background: #f8fafc; border: 1px solid #e5e7eb; box-shadow: var(--shadow-float); border-radius: 16px; overflow: hidden; }
+    .paper { width: 100%; max-width: none; margin: 0; background: #faf9f7; border: none; box-shadow: 0 8px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15); border-radius: 18px; overflow: hidden; }
     
     /* ヘッダー装飾 */
     .paper-header {
-      background: linear-gradient(135deg, var(--c-navy) 0%, var(--c-blue) 100%);
-      color: #fff; padding: 40px; text-align: center;
+      background: linear-gradient(135deg, var(--c-navy) 0%, var(--c-blue) 60%, var(--c-teal) 100%);
+      color: #fff; padding: 48px 40px; text-align: center;
+      position: relative;
     }
-    .paper-title { font-size: 28px; font-weight: 800; letter-spacing: 0.02em; margin: 0; }
-    .paper-meta { margin-top: 10px; opacity: 0.7; font-size: 13px; }
+    .paper-header::after {
+      content: "";
+      position: absolute; bottom: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, var(--c-pink), var(--c-teal), var(--c-pink));
+      opacity: 0.6;
+    }
+    .paper-title { font-size: 30px; font-weight: 800; letter-spacing: 0.03em; margin: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .paper-meta { margin-top: 12px; opacity: 0.75; font-size: 13px; letter-spacing: 0.04em; }
 
     /* 本文エリア */
-    .paper-body { padding: 24px 32px; background: #d3d6db; color: #111827; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.10'/%3E%3C/svg%3E"); }
-    @media (max-width: 600px) { .paper-body { padding: 20px; } }
+    .paper-body {
+      padding: 28px 36px;
+      background: #faf9f7;
+      color: #1a1a2e;
+      background-image:
+        repeating-linear-gradient(to bottom, transparent 0, transparent 1.75em, rgba(var(--c-navy-rgb),0.03) 1.75em, rgba(var(--c-navy-rgb),0.03) calc(1.75em + 1px)),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.06'/%3E%3C/svg%3E");
+    }
+    @media (max-width: 600px) { .paper-body { padding: 18px 16px; } }
 
     /* 閲覧モード：章の見出し */
-    .view-chapter { margin-bottom: 50px; }
+    .view-chapter { margin-bottom: 48px; }
     .view-chapter-title {
-      font-size: 24px; font-weight: 700; color: #111827;
-      border-bottom: 3px solid var(--accent);
-      padding-bottom: 8px; margin-bottom: 24px; margin-top: 0;
+      font-size: 22px; font-weight: 800; color: #1a1a2e;
+      border-bottom: none;
+      padding: 12px 18px;
+      margin-bottom: 24px; margin-top: 0;
+      background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.08), rgba(var(--c-blue-rgb),0.06));
+      border-left: 4px solid var(--accent);
+      border-radius: 0 10px 10px 0;
+      letter-spacing: 0.02em;
     }
     
     /* 閲覧モード：シーンの見出し */
     .view-scene {
-      margin-bottom: 22px;
-      padding: 18px 20px;
+      margin-bottom: 20px;
+      padding: 20px 24px;
       background: #ffffff;
-      border: 1px solid #e5e7eb;
+      border: 1px solid rgba(var(--c-navy-rgb),0.08);
       border-radius: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      transition: box-shadow 0.2s;
     }
+    .view-scene:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
     .view-scene-title {
-      font-size: 18px; font-weight: 600; color: #111827;
-      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+      font-size: 17px; font-weight: 700; color: #1a1a2e;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+      padding-bottom: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.06);
     }
-    .view-scene-title::before { content: ""; display: block; width: 6px; height: 24px; background: #cbd5e1; border-radius: 3px; }
+    .view-scene-title::before { content: ""; display: block; width: 5px; height: 22px; background: linear-gradient(180deg, var(--accent), var(--c-blue)); border-radius: 3px; flex-shrink: 0; }
 
     /* 閲覧モード：テキストスタイル */
     .view-content {
-      font-size: 16px; line-height: 1.8; color: #111827;
-      /* Contain floated widgets (e.g., KPメモ) so scene height doesn't collapse in view mode */
+      font-size: 16px; line-height: 1.85; color: #2d2d44;
       display: flow-root;
     }
     .view-content::after{ content:""; display:block; clear:both; }
     .view-content p { margin-bottom: 1em; }
 
-    .view-content a{ color: var(--accent); }
+    .view-content a{ color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
     .view-content a:hover{ color: var(--primary); }
 
     /* 閲覧モード：画像 (枠線消去 & ソート不可) */
@@ -536,32 +565,33 @@
     /* 閲覧モード：コピー箱 (リッチデザイン) */
     .view-content .copybox-remove { display: none; }
     .view-content .copy-box{
-      background:#f0fdf4;
-      border:1px solid #bbf7d0;
+      background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+      border:1px solid #a7f3d0;
       color:#166534;
-      padding:16px 20px;
-      border-radius:8px;
+      padding:16px 22px;
+      border-radius:10px;
       cursor:pointer;
       transition:all .2s;
       position:relative;
       overflow:hidden;
-      box-shadow:0 2px 0 rgba(187,247,208,0.5);
+      box-shadow: 0 2px 6px rgba(16,185,129,0.08);
       margin:16px 0;
     }
     .view-content .copy-box::before{
-      content:"クリックしてコピー";
+      content:"📋 クリックしてコピー";
       color:#15803d;
       opacity:0.7;
-      font-weight:600;
+      font-weight:700;
       font-size:11px;
-      margin-bottom:6px;
+      margin-bottom:8px;
       display:block;
       user-select:none;
+      letter-spacing: 0.02em;
     }
     .view-content .copy-box:hover{
-      background:#dcfce7;
+      background: linear-gradient(135deg, #dcfce7, #d1fae5);
       transform:translateY(-1px);
-      box-shadow:0 4px 0 rgba(187,247,208,0.8);
+      box-shadow: 0 4px 12px rgba(16,185,129,0.12);
     }
     .view-content .copy-box:active{
       transform:translateY(1px);
@@ -854,8 +884,7 @@
       .editor-body { padding: 12px; padding-bottom: 120px; }
       .chapter-header { padding: 12px; flex-wrap: wrap; gap: 10px; }
       .chapter-block > div:not(.chapter-header) { padding: 16px 12px; }
-      .scene-header { padding: 10px 12px; }
-      .scene-delete-btn { right: 8px; }
+      .scene-header { padding: 10px 12px; flex-wrap: wrap; }
       .ql-editor { padding: 14px 14px; }
       .gallery-item { width: 100%; }
       .view-mode-container { padding: 12px; }
@@ -1384,6 +1413,123 @@
 .skill-copy-btn:hover{ background: #ffffff; }
 .kp-secret-block{ background: #0b1220; color: var(--text-main); border-left-color: var(--accent); }
   #fontSizeRange { accent-color: var(--primary); }
+
+  /* ダークモード：ボタンの文字色修正 */
+  button { color: var(--text-main); border-color: var(--line); background: var(--bg-panel); }
+  button:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.22); }
+  button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); }
+  button.ghost:hover { background: rgba(255,255,255,0.06); color: var(--text-main); }
+  button.danger { color: #f87171; border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.08); }
+
+  /* ダークモード：削除ボタン */
+  .scene-delete-btn { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3); color: #f87171; }
+  .scene-delete-btn:hover { background: rgba(248,113,113,0.2); }
+
+  /* ダークモード：input */
+  input { background: rgba(255,255,255,0.06); border-color: var(--line); color: var(--text-main); }
+  input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--c-teal-rgb),0.15); }
+  .chapter-title-input, .scene-title-input { color: var(--text-main); }
+  .chapter-title-input:focus { background: rgba(255,255,255,0.06); }
+
+  /* ダークモード：コピーボックス（編集モード） */
+  .copy-box {
+    background: rgba(var(--c-teal-rgb), 0.10);
+    border-color: rgba(var(--c-teal-rgb), 0.30);
+    color: var(--text-main);
+  }
+  .copy-box::before { color: var(--c-teal); }
+  .copybox-remove {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.18);
+    color: var(--c-teal);
+  }
+  .copybox-remove:hover { background: rgba(255,255,255,0.14); }
+
+  /* ダークモード：コピーボックス（閲覧モード） */
+  .view-content .copy-box {
+    background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.12), rgba(var(--c-teal-rgb),0.08));
+    border-color: rgba(var(--c-teal-rgb),0.30);
+    color: var(--text-main);
+  }
+  .view-content .copy-box::before { color: var(--c-teal); }
+  .view-content .copy-box:hover {
+    background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.18), rgba(var(--c-teal-rgb),0.12));
+  }
+
+  /* ダークモード：技能判定ボックス */
+  .skill-check-widget {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.12);
+  }
+  .skill-check-head {
+    background: rgba(255,255,255,0.06);
+    border-bottom-color: rgba(255,255,255,0.10);
+    color: var(--text-main);
+  }
+  .skill-name-input { color: var(--text-main) !important; }
+  .skill-name-input::placeholder { color: var(--text-muted); }
+  .skill-check-col.success {
+    background: rgba(var(--c-teal-rgb), 0.15);
+  }
+  .skill-check-col.failure {
+    background: rgba(var(--c-pink-rgb), 0.12);
+  }
+  .skill-check-col + .skill-check-col { border-left-color: rgba(255,255,255,0.08); }
+  .skill-textarea {
+    color: var(--text-main);
+  }
+  .skill-textarea::placeholder { color: var(--text-muted); }
+  .skill-text-view {
+    color: var(--text-main);
+    border-color: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+  .skill-name-view { color: var(--text-main); }
+  .skill-check-label { color: var(--text-main); }
+  .skill-check-col-head { color: var(--text-main); }
+
+  /* ダークモード：KPメモ（本文内フロート） */
+  .kp-note {
+    background: rgba(var(--c-navy-rgb), 0.85);
+    border-color: rgba(var(--c-teal-rgb), 0.30);
+  }
+  .kp-note-head {
+    background: rgba(0,0,0,0.25);
+    border-bottom-color: rgba(255,255,255,0.10);
+  }
+  .kp-note-text {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.12);
+    color: #e8edf3;
+  }
+
+  /* ダークモード：KPメモ（閲覧モードインライン） */
+  .kp-inline-view {
+    background: linear-gradient(135deg, rgba(var(--c-navy-rgb),0.85), rgba(var(--c-navy-rgb),0.75));
+    border-color: rgba(var(--c-teal-rgb),0.25);
+    border-left-color: rgba(var(--c-teal-rgb),0.70);
+  }
+
+  /* ダークモード：KPパネルカード */
+  .kp-card-body textarea {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.12);
+    color: var(--text-main);
+  }
+
+  /* ダークモード：select要素 */
+  select {
+    background: rgba(255,255,255,0.06);
+    border-color: var(--line);
+    color: var(--text-main);
+  }
+
+  /* ダークモード：閲覧モードの章見出し */
+  .view-chapter-title {
+    background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.12), rgba(var(--c-blue-rgb),0.10));
+    border-left-color: var(--c-teal);
+  }
 }
 
 
@@ -5239,13 +5385,17 @@ function createQuill(container, content, isView, onContentChange) {
         [{ 'list': 'ordered'}, { 'list': 'bullet' }],
         ['link', 'image'],
         ['copybox', 'skillcheck', 'kpnote', 'pctag'],
+        ['undo', 'redo'],
         ['clean']
       ]
     };
 
     const q = new Quill(container, {
       theme: 'snow',
-      modules: { toolbar: toolbarOptions },
+      modules: {
+        toolbar: toolbarOptions,
+        history: { delay: 500, maxStack: 100, userOnly: true }
+      },
       readOnly: isView,
       // カスタムBlotが閲覧モードで消えないように formats を明示
       formats: [
@@ -5422,6 +5572,10 @@ function createQuill(container, content, isView, onContentChange) {
           tbEl.appendChild(toggleBtn);
         }
       } catch {}
+      // ★ Undo/Redo ハンドラ
+      toolbar.addHandler('undo', () => { q.history.undo(); });
+      toolbar.addHandler('redo', () => { q.history.redo(); });
+
       // 画像ボタン
       toolbar.addHandler('image', () => {
         const input = document.createElement('input');
@@ -5700,6 +5854,9 @@ try {
     setTitle('.ql-copybox', 'コピーブロック（📋）');
     setTitle('.ql-skillcheck', '技能判定ボックス（🎲）');
     setTitle('.ql-kpnote', 'KPメモ（🔒）');
+    setTitle('.ql-pctag', '探索者タグ（👤）');
+    setTitle('.ql-undo', '元に戻す（Ctrl+Z）');
+    setTitle('.ql-redo', 'やり直し（Ctrl+Y）');
   }
 } catch {}
 
