@@ -541,7 +541,7 @@
 
     /* 閲覧モード：テキストスタイル */
     .view-content {
-      font-size: 16px; line-height: 1.85; color: #2d2d44;
+      font-size: var(--editor-fontsize, 16px); line-height: 1.85; color: #2d2d44;
       display: flow-root;
     }
     .view-content::after{ content:""; display:block; clear:both; }
@@ -2711,6 +2711,31 @@ async function onAuthStateChanged(user) {
       }
     }
   } else {
+    // ログアウト状態 or 未ログイン：ローカルアダプタに切り替え
+    const localAdapter = (typeof indexedDB !== "undefined") ? createIndexedDBAdapter() : createLocalStorageAdapter();
+    __storageAdapter = localAdapter;
+
+    // ローカルからデータを再読み込み（initAppより後にonAuthStateChangedが呼ばれる場合に対応）
+    try {
+      const loaded = await asPromise(localAdapter.load(STORAGE_KEY));
+      if (loaded && typeof loaded === "object" && Array.isArray(loaded.scenarios)) {
+        // 現在のappより新しい/多いデータがあれば採用
+        const scoreApp = (v) => {
+          if (!v || !Array.isArray(v.scenarios)) return -1;
+          let s = v.scenarios.length ? 10 + v.scenarios.length : 0;
+          let newest = 0;
+          try { for (const sc of v.scenarios) newest = Math.max(newest, Number(sc && sc.updatedAt || 0)); } catch {}
+          return s + newest / 1e12;
+        };
+        if (scoreApp(loaded) > scoreApp(app)) {
+          app = loaded;
+          normalizeAppData();
+          app.currentScenarioId = null;
+          renderHome();
+        }
+      }
+    } catch {}
+
     updateSyncUI("offline");
   }
 }
