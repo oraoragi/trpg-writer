@@ -82,7 +82,7 @@
     .app { display: grid; grid-template-columns: 280px 1fr; height: 100vh; }
     
     /* Sidebar */
-    .sidebar { background: var(--bg-panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 20; }
+    .sidebar { background: var(--bg-panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 20; overflow: hidden; }
     .sidebar-header { padding: 16px; border-bottom: 1px solid var(--line); }
     .brand { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main); }
     .brand::before{
@@ -94,7 +94,7 @@
       background-size:contain;
       background-repeat:no-repeat;
       background-position:center;　}
-    .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; min-height: 0; }
     .sidebar-footer { padding: 12px; border-top: 1px solid var(--line); background: rgba(var(--c-blue-rgb),0.04); }
 
     /* Main Area */
