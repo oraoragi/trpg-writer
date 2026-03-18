@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
-<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
 <title>TRPG Writer</title>
 <link rel="icon" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,7 +95,9 @@
       background-repeat:no-repeat;
       background-position:center;　}
     .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; min-height: 0; }
-    .sidebar-footer { padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: rgba(var(--c-blue-rgb),0.04); }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--line); background: rgba(var(--c-blue-rgb),0.04); }
+    /* 文字サイズスライダー：トラック端までツマミが届くように */
+    #fontSizeRange { width: 100%; margin: 0; padding: 0; }
 
     /* Main Area */
     .main { overflow: hidden; position: relative; display: flex; flex-direction: column; }
@@ -236,6 +238,7 @@
       transition: box-shadow 0.2s;
     }
     .scene-block:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .scene-block.scene-active { box-shadow: 0 0 0 2px rgba(var(--c-blue-rgb),0.25), 0 2px 8px rgba(0,0,0,0.06); }
     .scene-block:first-child { margin-top: 0; }
     .scene-block:last-child { margin-bottom: 0; }
     .scene-header { padding: 10px 18px; background: rgba(var(--c-blue-rgb),0.02); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.07); position: relative; border-radius: 14px 14px 0 0; }
@@ -265,6 +268,9 @@
     .ql-toolbar { border: none !important; background: rgba(var(--c-navy-rgb),0.02); border-bottom: 1px solid rgba(var(--c-navy-rgb),0.07) !important; padding: 6px 10px !important; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
     /* Quill toolbar should stay visible while scrolling */
     .scene-block .ql-toolbar { position: sticky; top: 0; z-index: 120; background: var(--bg-panel); border-radius: 0; }
+    /* アクティブでないシーンのツールバーは非表示 */
+    .scene-block .ql-toolbar { display: none; }
+    .scene-block.scene-active .ql-toolbar { display: flex; }
     /* Sticky toolbar should align to the top of the editor area */
     .scene-block .ql-toolbar {
       left: 0;
@@ -280,24 +286,33 @@
     .view-content { font-size: var(--editor-fontsize, 16px); }
     .paper-body { font-size: var(--editor-fontsize, 16px); }
 
-    /* Picker（プルダウン）の幅を縮める */
-    .ql-snow .ql-picker.ql-header { width: 72px; }
-    .ql-snow .ql-picker.ql-size { width: 52px; }
-    .ql-snow .ql-picker .ql-picker-label { padding: 0 4px; }
-
-    /* Color / Background picker のアイコン位置・サイズ合わせ */
-    .ql-snow .ql-color-picker {
-      height: 36px;
+    /* Picker（プルダウン）の幅 */
+    .ql-snow .ql-picker.ql-header { width: 80px !important; }
+    .ql-snow .ql-picker .ql-picker-label {
+      padding: 0 4px !important;
       display: inline-flex !important;
       align-items: center;
+      height: 32px !important;
+      line-height: 32px !important;
+    }
+
+    /* Color / Background picker のサイズをボタンと統一 */
+    .ql-snow .ql-color-picker {
+      width: 32px !important;
+      height: 32px !important;
+      display: inline-flex !important;
+      align-items: center;
+      padding: 0 !important;
+      margin: 0 !important;
     }
     .ql-snow .ql-color-picker .ql-picker-label {
       padding: 0 !important;
+      margin: 0 !important;
       display: inline-flex !important;
       align-items: center;
       justify-content: center;
-      height: 36px;
-      width: 36px;
+      height: 32px !important;
+      width: 32px !important;
     }
     .ql-snow .ql-color-picker .ql-picker-label svg {
       width: 18px !important;
@@ -305,51 +320,82 @@
       vertical-align: middle;
     }
 
+    /* ★ Quill snow デフォルトのボタン余白を完全リセット */
+    .ql-snow.ql-toolbar button:not(.tb-toggle-btn),
+    .ql-snow .ql-toolbar button:not(.tb-toggle-btn) {
+      width: 32px !important;
+      height: 32px !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      float: none !important;
+    }
+    .ql-snow.ql-toolbar button:not(.tb-toggle-btn) svg,
+    .ql-snow .ql-toolbar button:not(.tb-toggle-btn) svg {
+      width: 18px !important;
+      height: 18px !important;
+    }
+    .ql-snow.ql-toolbar .ql-picker,
+    .ql-snow .ql-toolbar .ql-picker {
+      height: 32px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      float: none !important;
+    }
+
     /* カスタムボタン（コピー箱 / 技能判定 / KPメモ / 探索者） */
     .ql-toolbar button.ql-copybox,
     .ql-toolbar button.ql-skillcheck,
     .ql-toolbar button.ql-kpnote,
-    .ql-toolbar button.ql-pctag{
-      min-width: 36px;
-      height: 36px;
+    .ql-toolbar button.ql-pctag,
+    .ql-toolbar button.ql-ccfolia{
+      min-width: 32px;
+      height: 32px;
       padding: 0 !important;
       display: inline-flex !important;
       align-items: center;
       justify-content: center;
       line-height: 1;
-      font-size: 20px !important;
-      border-radius: 8px;
+      font-size: 18px !important;
+      border-radius: 6px;
     }
     .ql-toolbar button.ql-copybox{ color: var(--primary); }
     .ql-toolbar button.ql-skillcheck{ color: var(--primary); }
     .ql-toolbar button.ql-kpnote{ color: var(--danger); }
     .ql-toolbar button.ql-pctag{ color: var(--accent); }
+    .ql-toolbar button.ql-ccfolia{ color: #888; }
 
     .ql-toolbar button.ql-copybox::before { content: "📋"; }
     .ql-toolbar button.ql-skillcheck::before { content: "🎲"; }
     .ql-toolbar button.ql-kpnote::before { content: "🔒"; }
     .ql-toolbar button.ql-pctag::before { content: "👤"; }
+    .ql-toolbar button.ql-ccfolia::before { content: "🎬"; }
     /* Undo / Redo */
     .ql-toolbar button.ql-undo,
     .ql-toolbar button.ql-redo {
-      min-width: 36px; height: 36px; padding: 0 !important;
+      min-width: 32px; height: 32px; padding: 0 !important;
       display: inline-flex !important; align-items: center; justify-content: center;
-      font-size: 16px !important; border-radius: 8px; color: var(--text-muted);
+      font-size: 16px !important; border-radius: 6px; color: var(--text-muted);
     }
     .ql-toolbar button.ql-undo::before { content: "↩"; }
     .ql-toolbar button.ql-redo::before { content: "↪"; }
-/* Toolbar button sizing */
-.ql-toolbar .ql-formats{ display: inline-flex; align-items: center; gap: 1px; margin-right: 6px; }
-.ql-toolbar .ql-formats button{ min-width: 36px; height: 36px; padding: 0; }
-.ql-toolbar .ql-formats button svg{ width: 18px; height: 18px; }
-.ql-toolbar .ql-formats .ql-picker-label{ height: 36px; display: inline-flex; align-items: center; }
-.ql-toolbar .ql-formats .ql-picker{ height: 36px; }
+/* Toolbar group separators */
+.ql-toolbar .ql-formats{
+  display: inline-flex !important; align-items: center; gap: 2px;
+  padding-right: 10px;
+  margin-right: 4px;
+  border-right: 1px solid rgba(var(--c-navy-rgb), 0.12);
+  float: none !important;
+}
+.ql-toolbar .ql-formats:last-child{ border-right: none; margin-right: 0; padding-right: 0; }
 
 /* --- Mobile toolbar: 折りたたみ --- */
 .ql-toolbar .ql-formats.tb-extra { display: inline-flex; }
 .tb-toggle-btn {
-  display: none !important; /* デスクトップでは常に非表示 */
-  min-width: 36px; height: 36px;
+  display: none !important;
+  min-width: 32px; height: 32px;
   border: 1px solid var(--line); border-radius: 8px;
   background: #fff; cursor: pointer;
   font-size: 16px;
@@ -480,6 +526,45 @@
     }
     .copybox-remove:hover{ background: rgba(var(--c-blue-rgb),0.08); }
     .view-content .copybox-remove{ display:none; }
+
+    /* === ココフォリアシーンマーカー（左縦線・CSS疑似要素でラベル表示） === */
+    .ccfolia-line{
+      border-left: 3px solid #d1d5db;
+      padding: 1px 12px 1px 12px;
+      margin: 0;
+      position: relative;
+      background: transparent;
+    }
+    /* 先頭行（直前がccfolia-lineでない場合）だけラベル表示 */
+    .ccfolia-line::before{
+      content: "🎬 " attr(data-ccfolia-name);
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #b0b5bd;
+      margin-bottom: 1px;
+      user-select: none;
+      pointer-events: none;
+      line-height: 1.4;
+    }
+    /* 連続行の2行目以降はラベル非表示 */
+    .ccfolia-line + .ccfolia-line::before{ display: none; }
+    /* 閲覧モード */
+    .view-content .ccfolia-line{
+      border-left: 3px solid #d1d5db;
+      padding: 1px 12px 1px 12px;
+      background: transparent;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .view-content .ccfolia-line:hover{
+      background: rgba(156,163,175,0.06);
+    }
+    .view-content .ccfolia-line::before{
+      content: "🎬 " attr(data-ccfolia-name) "　─ クリックしてコピー";
+    }
+    .view-content .ccfolia-line + .ccfolia-line::before{ display: none; }
 
 
     /* --- View Mode (Session Mode) --- */
@@ -869,7 +954,7 @@
       }
 
       .main { overflow: hidden; }
-      .home-wrap { padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+      .home-wrap { padding: 16px; }
       .card-grid { grid-template-columns: 1fr; }
 
       /* Home: keep JSON controls available (icon buttons) */
@@ -890,13 +975,13 @@
       .editor-toolbar .mode-toggle { font-size: 13px; padding: 8px 12px; white-space: nowrap; }
 
       /* General spacing */
-      .editor-body { padding: 12px; padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+      .editor-body { padding: 12px; padding-bottom: 120px; }
       .chapter-header { padding: 12px; flex-wrap: wrap; gap: 10px; }
       .chapter-block > div:not(.chapter-header) { padding: 16px 12px; }
       .scene-header { padding: 10px 12px; flex-wrap: wrap; }
       .ql-editor { padding: 14px 14px; }
       .gallery-item { width: 100%; }
-      .view-mode-container { padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+      .view-mode-container { padding: 12px; }
       .paper-header { padding: 26px 16px; }
       .paper-body { padding: 16px; }
       .char-count { display: none !important; }
@@ -1395,6 +1480,7 @@
 
   /* Quill toolbar / icons */
   .ql-toolbar { background: var(--bg-panel) !important; border-bottom-color: var(--line) !important; }
+  .ql-toolbar .ql-formats{ border-right-color: rgba(255,255,255,0.10); }
   .ql-container { color: var(--text-main) !important; }
   .ql-stroke { stroke: var(--text-main) !important; }
   .ql-fill { fill: var(--text-main) !important; }
@@ -1454,6 +1540,11 @@
     color: var(--c-teal);
   }
   .copybox-remove:hover { background: rgba(255,255,255,0.14); }
+
+  /* ダークモード：ココフォリアマーカー */
+  .ccfolia-line{ border-left-color: #4b5563; }
+  .ccfolia-line::before{ color: #6b7280; }
+  .view-content .ccfolia-line{ border-left-color: #4b5563; }
 
   /* ダークモード：コピーボックス（閲覧モード） */
   .view-content .copy-box {
@@ -2069,7 +2160,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
   <label for="fontSizeRange" style="font-size:13px; color:var(--text-muted); white-space:nowrap;">文字サイズ</label>
   <input type="range" id="fontSizeRange" min="12" max="24" step="1" value="16" style="flex:1; accent-color:var(--primary);" />
-  <span id="fontSizeValue" style="font-size:13px; color:var(--text-muted); min-width:36px; text-align:right;">16px</span>
+  <span id="fontSizeValue" style="font-size:13px; color:var(--text-muted); min-width:28px; text-align:right;">16px</span>
 </div>
 <div class="sync-bar" id="syncBar">
   <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">オフライン</span></span>
@@ -2248,6 +2339,35 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
       document.body.removeChild(ta);
       return ok;
     } catch { return false; }
+  }
+
+  // --- ココフォリアシーン名入力ダイアログ ---
+  function showCcfoliaNameDialog(callback) {
+    const existing = document.getElementById("ccfoliaDialog");
+    if (existing) existing.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "ccfoliaDialog";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;";
+    const box = document.createElement("div");
+    box.style.cssText = "background:#fff;border-radius:14px;padding:24px;width:320px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,0.2);";
+    if (document.body.classList.contains("dark")) { box.style.background = "#1e293b"; box.style.color = "#e2e8f0"; }
+    box.innerHTML = `
+      <div style="font-weight:700;font-size:15px;margin-bottom:14px;">🎬 ココフォリアシーン登録</div>
+      <label style="font-size:13px;color:#64748b;display:block;margin-bottom:4px;">シーン名</label>
+      <input id="ccfName" type="text" placeholder="例：導入シーン" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:18px;box-sizing:border-box;background:inherit;color:inherit;"/>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="ccfCancel" type="button" style="padding:8px 16px;border:1px solid #d1d5db;border-radius:8px;background:transparent;cursor:pointer;color:inherit;">キャンセル</button>
+        <button id="ccfOk" type="button" style="padding:8px 16px;border:none;border-radius:8px;background:#6b7280;color:#fff;font-weight:700;cursor:pointer;">登録</button>
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    const nameInput = box.querySelector("#ccfName");
+    setTimeout(() => nameInput.focus(), 50);
+    const close = () => overlay.remove();
+    box.querySelector("#ccfCancel").onclick = close;
+    overlay.addEventListener("pointerdown", (e) => { if (e.target === overlay) close(); });
+    box.querySelector("#ccfOk").onclick = () => { const name = nameInput.value.trim() || "ココフォリアシーン"; close(); callback(name); };
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); box.querySelector("#ccfOk").click(); } if (e.key === "Escape") close(); });
   }
 
   function normalizeBodyForStorage(html) {
@@ -4229,6 +4349,42 @@ class CopyBoxBlock extends Block {
   }
   Quill.register(CopyBoxBlock, true);
 
+  // --- ココフォリアシーンマーカー（行フォーマット：左縦線・CSS ::before でラベル表示） ---
+  class CcfoliaBlock extends Block {
+    static blotName = "ccfolia";
+    static tagName = "DIV";
+    static className = "ccfolia-line";
+
+    static create(value) {
+      const node = super.create(value);
+      const name = (typeof value === 'string') ? value : '';
+      if (name) node.setAttribute('data-ccfolia-name', name);
+      return node;
+    }
+
+    static formats(node) {
+      return node.getAttribute('data-ccfolia-name') || true;
+    }
+
+    format(name, value) {
+      if (name === 'ccfolia') {
+        if (value) {
+          const v = (typeof value === 'string') ? value : '';
+          if (v) this.domNode.setAttribute('data-ccfolia-name', v);
+        } else {
+          // 解除: クラスとdata属性を除去して通常ブロックに戻す
+          this.domNode.removeAttribute('data-ccfolia-name');
+          this.domNode.classList.remove('ccfolia-line');
+          // QuillのreplaceWith で通常Blockに変換
+          super.format(name, value);
+        }
+      } else {
+        super.format(name, value);
+      }
+    }
+  }
+  Quill.register(CcfoliaBlock, true);
+
 
 // --- Img Gallery (Sortable) ---
   const BlockEmbed = Quill.import("blots/block/embed");
@@ -5434,12 +5590,8 @@ function createQuill(container, content, isView, onContentChange) {
     // ツールバー設定：ここに copybox を明示的に追加
     const toolbarOptions = isView ? false : {
       container: [
-        [{ 'header': [1, 2, 3, false] }, { 'size': ['small', false, 'large', 'huge'] }],
-        ['bold', 'italic', 'underline', { 'color': [] }, { 'background': [] }],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        ['link', 'image'],
+        [{ 'header': [1, 2, 3, false] }, 'bold', 'italic', 'underline', { 'color': [] }, { 'background': [] }, 'image'],
         ['copybox', 'skillcheck', 'kpnote', 'pctag'],
-        ['undo', 'redo'],
         ['clean']
       ]
     };
@@ -5455,16 +5607,28 @@ function createQuill(container, content, isView, onContentChange) {
       formats: [
         'header','size','bold','italic','underline','strike','color','background',
         'list','link','image',
-        'copybox','break','softbreak','imgGallery','skillcheck','kpnote','kpanchor','pctag'
+        'copybox','break','softbreak','imgGallery','skillcheck','kpnote','kpanchor','pctag','ccfolia'
       ]
     });
       try{ attachKpAnchorSafety(q); }catch{}
+      try{ container.__quill = q; }catch{}
 
 
     // remember last focused editor (for KP panel add button etc.)
     try{
-      q.root.addEventListener('focusin', () => { window.__trpg_lastFocusedQuill = q; }, true);
-      q.root.addEventListener('pointerdown', () => { window.__trpg_lastFocusedQuill = q; }, true);
+      const activateScene = () => {
+        window.__trpg_lastFocusedQuill = q;
+        // 全シーンからscene-activeを外し、現在のシーンだけに付与
+        const scBlock = container.closest('.scene-block');
+        if (scBlock) {
+          document.querySelectorAll('.scene-block.scene-active').forEach(el => {
+            if (el !== scBlock) el.classList.remove('scene-active');
+          });
+          scBlock.classList.add('scene-active');
+        }
+      };
+      q.root.addEventListener('focusin', activateScene, true);
+      q.root.addEventListener('pointerdown', activateScene, true);
     }catch{}
 
     // --- Clipboard: copy-box を「1つの箱」のまま復元する ---
@@ -5533,6 +5697,16 @@ function createQuill(container, content, isView, onContentChange) {
         const title = node.getAttribute('title') || '';
         const label = title.replace('探索者', '').trim() || 'A';
         return new Delta().insert({ pctag: label });
+      });
+
+      // ★ ココフォリアマーカー行の復元
+      q.clipboard.addMatcher('div.ccfolia-line', (node) => {
+        const name = node.getAttribute('data-ccfolia-name') || '';
+        const text = node.textContent || '';
+        const d = new Delta();
+        if (text) d.insert(text);
+        d.insert('\n', { ccfolia: name || true });
+        return d;
       });
     } catch {
       // If Delta import fails for some reason, fall back to Quill default behavior.
@@ -5626,9 +5800,6 @@ function createQuill(container, content, isView, onContentChange) {
           tbEl.appendChild(toggleBtn);
         }
       } catch {}
-      // ★ Undo/Redo ハンドラ
-      toolbar.addHandler('undo', () => { q.history.undo(); });
-      toolbar.addHandler('redo', () => { q.history.redo(); });
 
       // 画像ボタン
       toolbar.addHandler('image', () => {
@@ -5892,25 +6063,90 @@ try {
     };
 
     setTitle('.ql-header', '見出し（段落）');
-    setTitle('.ql-size', '文字サイズ（選択部分）');
     setTitle('.ql-bold', '太字');
     setTitle('.ql-italic', '斜体');
     setTitle('.ql-underline', '下線');
-    setTitle('.ql-strike', '取り消し線');
     setTitle('.ql-color', '文字色');
     setTitle('.ql-background', '文字背景色');
-    setTitle('.ql-list[value="ordered"]', '番号リスト');
-    setTitle('.ql-list[value="bullet"]', '箇条書き');
-    setTitle('.ql-link', 'リンク');
     setTitle('.ql-image', '画像');
     setTitle('.ql-clean', '装飾クリア');
-
     setTitle('.ql-copybox', 'コピーブロック（📋）');
     setTitle('.ql-skillcheck', '技能判定ボックス（🎲）');
     setTitle('.ql-kpnote', 'KPメモ（🔒）');
     setTitle('.ql-pctag', '探索者タグ（👤）');
-    setTitle('.ql-undo', '元に戻す（Ctrl+Z）');
-    setTitle('.ql-redo', 'やり直し（Ctrl+Y）');
+
+    // --- Undo/Redo ボタンをツールバーの先頭にDOM手動追加 ---
+    try {
+      const undoRedoGroup = document.createElement('span');
+      undoRedoGroup.className = 'ql-formats';
+
+      const undoBtn = document.createElement('button');
+      undoBtn.type = 'button';
+      undoBtn.className = 'ql-undo';
+      undoBtn.title = '元に戻す（Ctrl+Z）';
+      undoBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); q.history.undo(); });
+
+      const redoBtn = document.createElement('button');
+      redoBtn.type = 'button';
+      redoBtn.className = 'ql-redo';
+      redoBtn.title = 'やり直し（Ctrl+Y）';
+      redoBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); q.history.redo(); });
+
+      undoRedoGroup.appendChild(undoBtn);
+      undoRedoGroup.appendChild(redoBtn);
+      // 装飾クリア(Tx)をこのグループに移動
+      const cleanBtn = tb.querySelector('.ql-clean');
+      if (cleanBtn) {
+        const oldGroup = cleanBtn.closest('.ql-formats');
+        undoRedoGroup.appendChild(cleanBtn);
+        // 空になった元グループを削除
+        if (oldGroup && oldGroup.children.length === 0) oldGroup.remove();
+      }
+      tb.insertBefore(undoRedoGroup, tb.firstChild);
+    } catch {}
+
+    // --- 🎬 ココフォリアシーンマーカーボタン ---
+    try {
+      const copyboxBtn = tb.querySelector('.ql-copybox');
+      const formatsGroup = copyboxBtn ? copyboxBtn.closest('.ql-formats') : null;
+      if (formatsGroup) {
+        const ccfBtn = document.createElement('button');
+        ccfBtn.type = 'button';
+        ccfBtn.className = 'ql-ccfolia';
+        ccfBtn.title = 'ココフォリアシーン（🎬）';
+        // copyboxの直後に挿入
+        const nextSibling = copyboxBtn.nextElementSibling;
+        if (nextSibling) {
+          formatsGroup.insertBefore(ccfBtn, nextSibling);
+        } else {
+          formatsGroup.appendChild(ccfBtn);
+        }
+        ccfBtn.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const range = q.getSelection(true) || { index: Math.max(0, q.getLength() - 1), length: 0 };
+
+          if (range.length > 0) {
+            showCcfoliaNameDialog((name) => {
+              q.setSelection(range.index, range.length, 'silent');
+              const startLine = q.getLine(range.index);
+              const endLine = q.getLine(range.index + range.length - 1);
+              const startIdx = startLine[0] ? q.getIndex(startLine[0]) : range.index;
+              const endIdx = endLine[0] ? q.getIndex(endLine[0]) + endLine[0].length() : range.index + range.length;
+              q.formatLine(startIdx, endIdx - startIdx, { ccfolia: name }, 'user');
+            });
+          } else {
+            const fmt = q.getFormat(range.index);
+            if (fmt && fmt.ccfolia) {
+              q.formatLine(range.index, 1, { ccfolia: false }, 'user');
+            } else {
+              showCcfoliaNameDialog((name) => {
+                q.formatLine(range.index, 1, { ccfolia: name }, 'user');
+              });
+            }
+          }
+        });
+      }
+    } catch (err) { console.warn('ccfolia button init:', err); }
   }
 } catch {}
 
@@ -5929,38 +6165,151 @@ try {
         }
 
         const isEnter = (e.key === 'Enter' || e.keyCode === 13);
+        const isBackspace = (e.key === 'Backspace' || e.keyCode === 8);
+
+        // --- コピーボックスのBackspace保護 ---
+        if (isBackspace) {
+          const range = q.getSelection();
+          if (range && range.length === 0) {
+            try {
+              const [line] = q.getLine(range.index);
+              const dom = line && line.domNode ? line.domNode : null;
+              const lineStart = line ? q.getIndex(line) : -1;
+
+              // (1) コピーボックス行頭でのBackspace → ブロック
+              if (dom && dom.classList && dom.classList.contains('copy-box')) {
+                if (range.index === lineStart) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+              }
+
+              // (2) コピーボックス直後の行頭でBackspace → ブロック（マージ防止）
+              if (range.index === lineStart && lineStart > 0) {
+                try {
+                  const [prevLine] = q.getLine(lineStart - 1);
+                  const prevDom = prevLine && prevLine.domNode ? prevLine.domNode : null;
+                  if (prevDom && prevDom.classList && prevDom.classList.contains('copy-box')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                  }
+                } catch {}
+              }
+            } catch {}
+          }
+          return;
+        }
+
         if (!isEnter) return;
 
         const range = q.getSelection();
         if (!range) return;
+
+        // カーソル位置のブロック種別を判定
         let inCopybox = false;
+        let inCcfolia = false;
         try {
-          const linePair = q.getLine(range.index);
-          const line = linePair && linePair[0] ? linePair[0] : null;
+          const [line] = q.getLine(range.index);
           const dom = line && line.domNode ? line.domNode : null;
-          inCopybox = !!(dom && dom.classList && dom.classList.contains('copy-box'));
+          if (dom && dom.classList) {
+            inCopybox = dom.classList.contains('copy-box');
+            inCcfolia = dom.classList.contains('ccfolia-line');
+          }
         } catch {}
 
-        // Ctrl+Enter（Windows） / Cmd+Enter（Mac）で同一段落内改行
-        const isShortEnter = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+        // --- ccfolia行のEnter処理 ---
+        if (inCcfolia) {
+          // まず現在行が空かチェック（空行でEnter→脱出）
+          try {
+            const [line] = q.getLine(range.index);
+            if (line) {
+              const lineStart = q.getIndex(line);
+              const lineText = q.getText(lineStart, line.length()).replace(/\n/g, '');
+              if (lineText.trim() === '') {
+                // 空行 → DOMからccfoliaを解除するだけ（改行は挿入しない）
+                e.preventDefault(); e.stopPropagation();
+                const dom = line.domNode;
+                if (dom) {
+                  dom.classList.remove('ccfolia-line');
+                  dom.removeAttribute('data-ccfolia-name');
+                }
+                return;
+              }
+            }
+          } catch {}
+          // テキストがある行 → 通常改行（新ccfolia行が生まれる）
+          e.preventDefault(); e.stopPropagation();
+          q.insertText(range.index, '\n', 'user');
+          q.setSelection(range.index + 1, 0, 'silent');
+          return;
+        }
 
-        // すべての Enter を同一段落内改行にする（改段落にしない）
-        const shouldSoftBreak = true;
-
-        if (!shouldSoftBreak) return; // 通常の Enter は Quill に任せる
-
+        // --- ここから先はccfolia以外のEnter処理 ---
         e.preventDefault();
         e.stopPropagation();
 
-        // コピー箱内ではsoftbreak、通常はQuillの改行（新ブロック）を使う
+        // --- コピーボックスのEnter処理 ---
         if (inCopybox) {
+          // 末尾でsoftbreak後にカーソルがある → 脱出
+          try {
+            const sel = window.getSelection();
+            if (sel && sel.focusNode) {
+              const focusNode = sel.focusNode;
+              const focusOffset = sel.focusOffset;
+              const boxEl = focusNode.nodeType === 1
+                ? focusNode.closest('.copy-box')
+                : (focusNode.parentElement ? focusNode.parentElement.closest('.copy-box') : null);
+
+              if (boxEl) {
+                // カーソル直前のノードがsoftbreak <br> か確認
+                let prevNode = null;
+                if (focusNode.nodeType === 1) {
+                  // Element内のoffset位置の直前の子ノード
+                  prevNode = focusNode.childNodes[focusOffset - 1] || null;
+                } else if (focusNode.nodeType === 3) {
+                  // テキストノード内でoffset=0なら、前の兄弟を見る
+                  if (focusOffset === 0) prevNode = focusNode.previousSibling;
+                }
+
+                const isSoftbreak = prevNode && prevNode.nodeType === 1 &&
+                  prevNode.tagName === 'BR' && prevNode.classList.contains('trpg-softbreak');
+
+                // 直前がsoftbreakで、カーソル以降にテキストがない
+                if (isSoftbreak) {
+                  let hasTextAfter = false;
+                  let node = prevNode.nextSibling;
+                  while (node) {
+                    if (node.nodeType === 3 && node.textContent.trim() !== '') { hasTextAfter = true; break; }
+                    if (node.nodeType === 1 && !node.classList.contains('copybox-remove') &&
+                        node.tagName !== 'BR') { hasTextAfter = true; break; }
+                    node = node.nextSibling;
+                  }
+                  if (!hasTextAfter) {
+                    // softbreakを削除して箱の外に抜ける
+                    prevNode.remove();
+                    const [line] = q.getLine(range.index);
+                    if (line) {
+                      const boxEnd = q.getIndex(line) + line.length();
+                      q.insertText(boxEnd, '\n', 'user');
+                      q.setSelection(boxEnd, 0, 'silent');
+                    }
+                    return;
+                  }
+                }
+              }
+            }
+          } catch {}
+          // 通常のコピーボックス内改行（softbreak挿入）
           q.insertEmbed(range.index, 'softbreak', true, 'user');
           q.setSelection(range.index + 1, 0, 'silent');
-        } else {
-          // 通常の改行：新しい行を挿入
-          q.insertText(range.index, '\n', 'user');
-          q.setSelection(range.index + 1, 0, 'silent');
+          return;
         }
+
+        // --- 通常行のEnter処理 ---
+        q.insertText(range.index, '\n', 'user');
+        q.setSelection(range.index + 1, 0, 'silent');
 }, true);
 
 // コピー箱解除ボタン（その箱だけ解除して中身は残す）
@@ -6328,6 +6677,38 @@ function setupViewCopyHandler() {
         return;
       }
 
+      // ccfolia-line click (view mode): 同名の連続ccfolia-lineを全てまとめてコピー
+      const ccfLine = e.target.closest('.ccfolia-line');
+      if (ccfLine && ccfLine.closest('.view-content')) {
+        e.preventDefault(); e.stopPropagation();
+        const name = ccfLine.getAttribute('data-ccfolia-name') || '';
+        // 同名で連続するccfolia-lineを全て集める
+        let lines = [];
+        let el = ccfLine;
+        // まず先頭まで遡る
+        while (el.previousElementSibling && el.previousElementSibling.classList.contains('ccfolia-line') &&
+               el.previousElementSibling.getAttribute('data-ccfolia-name') === name) {
+          el = el.previousElementSibling;
+        }
+        // 先頭から順にテキスト収集
+        while (el && el.classList.contains('ccfolia-line') && el.getAttribute('data-ccfolia-name') === name) {
+          lines.push(String(el.textContent || '').replace(/\s+$/, ''));
+          el = el.nextElementSibling;
+        }
+        const text = lines.join('\n').replace(/\n+$/, '');
+        if (!text) return;
+        const ok = await copyTextToClipboard(text);
+        if (ok) {
+          ccfLine.style.transition = 'background .15s';
+          ccfLine.style.background = 'rgba(156,163,175,0.15)';
+          setTimeout(() => { ccfLine.style.background = ''; }, 400);
+          showToast("コピーしました！");
+        } else {
+          showToast("コピーに失敗しました（ブラウザ設定をご確認ください）");
+        }
+        return;
+      }
+
       // Copy-box click (view mode)
       const box = e.target.closest('.copy-box');
       if (!box) return;
@@ -6640,8 +7021,16 @@ dom.scenarioTitle.value = s.title;
         scBlock.id = `sc-${sc.id}`;
         scBlock.dataset.sceneId = sc.id;
         scBlock.dataset.chapterId = ch.id;
-        scBlock.addEventListener("pointerdown", () => { setActiveKpContext(sc.id, ch.id); }, true);
-        scBlock.addEventListener("focusin", () => { setActiveKpContext(sc.id, ch.id); }, true);
+        scBlock.addEventListener("pointerdown", () => {
+          setActiveKpContext(sc.id, ch.id);
+          document.querySelectorAll('.scene-block.scene-active').forEach(el => el.classList.remove('scene-active'));
+          scBlock.classList.add('scene-active');
+        }, true);
+        scBlock.addEventListener("focusin", () => {
+          setActiveKpContext(sc.id, ch.id);
+          document.querySelectorAll('.scene-block.scene-active').forEach(el => el.classList.remove('scene-active'));
+          scBlock.classList.add('scene-active');
+        }, true);
 
         const scHead = document.createElement("div");
         scHead.className = "scene-header";
@@ -6766,6 +7155,12 @@ dom.scenarioTitle.value = s.title;
       };
 
       ch.scenes.forEach(sc => appendSceneBlock(sc));
+
+      // 最初のシーンをアクティブにする（ツールバー表示のため）
+      try {
+        const firstScene = scenesDiv.querySelector('.scene-block');
+        if (firstScene) firstScene.classList.add('scene-active');
+      } catch {}
 
 
       // シーン追加ボタン
