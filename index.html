@@ -2376,6 +2376,18 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
     const tpl = document.createElement('template');
     tpl.innerHTML = html || "";
     tpl.content.querySelectorAll('.copybox-remove').forEach(el => el.remove());
+
+    // 行頭スペースを &nbsp; に変換（Quill復元時のHTML空白正規化で消えるのを防ぐ）
+    const walker = document.createTreeWalker(tpl.content, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      const text = node.nodeValue;
+      if (text && /^ +/.test(text)) {
+        // 先頭の連続スペースを &nbsp; に置換
+        node.nodeValue = text.replace(/^ +/, (m) => '\u00A0'.repeat(m.length));
+      }
+    }
+
     return tpl.innerHTML;
   }
 
