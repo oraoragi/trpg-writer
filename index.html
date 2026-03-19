@@ -2371,24 +2371,13 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   }
 
   function normalizeBodyForStorage(html) {
-    // Remove edit-only controls (especially the CopyBox remove button),
-    // and leave the semantic structure so Quill can re-insert controls via blot.optimize().
     const tpl = document.createElement('template');
     tpl.innerHTML = html || "";
     tpl.content.querySelectorAll('.copybox-remove').forEach(el => el.remove());
-
-    // 行頭スペースを &nbsp; に変換（Quill復元時のHTML空白正規化で消えるのを防ぐ）
-    const walker = document.createTreeWalker(tpl.content, NodeFilter.SHOW_TEXT);
-    let node;
-    while ((node = walker.nextNode())) {
-      const text = node.nodeValue;
-      if (text && /^ +/.test(text)) {
-        // 先頭の連続スペースを &nbsp; に置換
-        node.nodeValue = text.replace(/^ +/, (m) => '\u00A0'.repeat(m.length));
-      }
-    }
-
-    return tpl.innerHTML;
+    // タグ直後の行頭スペースを &nbsp; に変換
+    let out = tpl.innerHTML;
+    out = out.replace(/(>)( +)/g, (_, tag, spaces) => tag + '\u00A0'.repeat(spaces.length));
+    return out;
   }
 
   // Debounced content extraction (updates in-memory app state, does NOT persist to storage).
@@ -5725,18 +5714,13 @@ function createQuill(container, content, isView, onContentChange) {
     }
 
     if (content) {
-      // 行頭スペースを &nbsp; に変換（Quillの空白正規化で消えるのを防ぐ）
-      const _tpl = document.createElement('template');
-      _tpl.innerHTML = content;
-      const _w = document.createTreeWalker(_tpl.content, NodeFilter.SHOW_TEXT);
-      let _n;
-      while ((_n = _w.nextNode())) {
-        const t = _n.nodeValue;
-        if (t && /^ +/.test(t)) {
-          _n.nodeValue = t.replace(/^ +/, (m) => '\u00A0'.repeat(m.length));
-        }
-      }
-      q.clipboard.dangerouslyPasteHTML(_tpl.innerHTML);
+      // タグ直後の行頭スペースを &nbsp; に変換（Quill/ブラウザの空白正規化で消えるのを防ぐ）
+      // <p>, <div>, <li> 等の開始タグ直後のスペースと、連続スペースを変換
+      const preserved = content
+        .replace(/(>)( +)/g, (_, tag, spaces) => tag + '\u00A0'.repeat(spaces.length))
+        .replace(/( ) /g, '\u00A0 ')  // 連続スペースの偶数番目をnbspに（HTML collapse防止）
+        ;
+      q.clipboard.dangerouslyPasteHTML(preserved);
     }
 
     // ★ ペースト時に <p> を段内改行に変換する
