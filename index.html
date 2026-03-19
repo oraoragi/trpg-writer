@@ -5724,7 +5724,20 @@ function createQuill(container, content, isView, onContentChange) {
       // If Delta import fails for some reason, fall back to Quill default behavior.
     }
 
-    if (content) q.clipboard.dangerouslyPasteHTML(content);
+    if (content) {
+      // 行頭スペースを &nbsp; に変換（Quillの空白正規化で消えるのを防ぐ）
+      const _tpl = document.createElement('template');
+      _tpl.innerHTML = content;
+      const _w = document.createTreeWalker(_tpl.content, NodeFilter.SHOW_TEXT);
+      let _n;
+      while ((_n = _w.nextNode())) {
+        const t = _n.nodeValue;
+        if (t && /^ +/.test(t)) {
+          _n.nodeValue = t.replace(/^ +/, (m) => '\u00A0'.repeat(m.length));
+        }
+      }
+      q.clipboard.dangerouslyPasteHTML(_tpl.innerHTML);
+    }
 
     // ★ ペースト時に <p> を段内改行に変換する
     try {
