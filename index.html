@@ -2374,10 +2374,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
     const tpl = document.createElement('template');
     tpl.innerHTML = html || "";
     tpl.content.querySelectorAll('.copybox-remove').forEach(el => el.remove());
-    // タグ直後の行頭スペースを &nbsp; に変換
-    let out = tpl.innerHTML;
-    out = out.replace(/(>)( +)/g, (_, tag, spaces) => tag + '\u00A0'.repeat(spaces.length));
-    return out;
+    return tpl.innerHTML;
   }
 
   // Debounced content extraction (updates in-memory app state, does NOT persist to storage).
@@ -5714,13 +5711,12 @@ function createQuill(container, content, isView, onContentChange) {
     }
 
     if (content) {
-      // タグ直後の行頭スペースを &nbsp; に変換（Quill/ブラウザの空白正規化で消えるのを防ぐ）
-      // <p>, <div>, <li> 等の開始タグ直後のスペースと、連続スペースを変換
-      const preserved = content
-        .replace(/(>)( +)/g, (_, tag, spaces) => tag + '\u00A0'.repeat(spaces.length))
-        .replace(/( ) /g, '\u00A0 ')  // 連続スペースの偶数番目をnbspに（HTML collapse防止）
-        ;
-      q.clipboard.dangerouslyPasteHTML(preserved);
+      // dangerouslyPasteHTMLはnbsp→通常スペース変換するため使わない。
+      // innerHTML直接セットでHTMLを復元し、Quillに認識させる。
+      q.root.innerHTML = content;
+      // Quillの内部状態を更新（historyリセット含む）
+      try { q.update('silent'); } catch {}
+      try { q.history.clear(); } catch {}
     }
 
     // ★ ペースト時に <p> を段内改行に変換する
