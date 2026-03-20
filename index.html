@@ -954,7 +954,7 @@
       }
 
       .main { overflow: hidden; }
-      .home-wrap { padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 48px)); }
+      .home-wrap { padding: 16px; padding-bottom: max(48px, calc(16px + env(safe-area-inset-bottom, 0px))); }
       .card-grid { grid-template-columns: 1fr; }
 
       /* Home: keep JSON controls available (icon buttons) */
@@ -975,13 +975,13 @@
       .editor-toolbar .mode-toggle { font-size: 13px; padding: 8px 12px; white-space: nowrap; }
 
       /* General spacing */
-      .editor-body { padding: 12px; padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
+      .editor-body { padding: 12px; padding-bottom: max(140px, calc(120px + env(safe-area-inset-bottom, 0px))); }
       .chapter-header { padding: 12px; flex-wrap: wrap; gap: 10px; }
       .chapter-block > div:not(.chapter-header) { padding: 16px 12px; }
       .scene-header { padding: 10px 12px; flex-wrap: wrap; }
       .ql-editor { padding: 14px 14px; }
       .gallery-item { width: 100%; }
-      .view-mode-container { padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 20px)); }
+      .view-mode-container { padding: 12px; padding-bottom: max(48px, calc(12px + env(safe-area-inset-bottom, 0px))); }
       .paper-header { padding: 26px 16px; }
       .paper-body { padding: 16px; }
       .char-count { display: none !important; }
@@ -2210,7 +2210,6 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 <div class="row" style="display:flex; gap:10px;">
 <span id="saveStatus" style="font-size:12px; color:var(--text-muted); margin-right:10px;"></span>
 <span class="char-count" id="charCount" title="現在の章の文字数">0 字</span>
-<button class="ghost mobile-only" id="btnMobileMenuOpenEditor" type="button" title="メニュー">メニュー</button>
 <button class="ghost" id="btnSearch" title="検索（Ctrl+F）">検索</button>
 <button class="primary" id="btnManualSave" type="button" title="保存（Ctrl+S）" style="font-size:13px; padding:7px 14px;">💾 保存</button>
 <button class="ghost icon-btn" id="btnExportScenario" type="button" title="JSON書き出し（このシナリオ）" aria-label="JSON書き出し（このシナリオ）">
@@ -2222,6 +2221,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 </button>
 <button class="ghost" id="btnAddChapter">＋ 章を追加</button>
 <button class="mode-toggle mode-to-play" id="btnToggleMode">閲覧モード（プレイ）</button>
+<button class="ghost mobile-only" id="btnMobileMenuOpenEditor" type="button" title="メニュー">メニュー</button>
 </div>
 </header>
 <div class="editor-split">
