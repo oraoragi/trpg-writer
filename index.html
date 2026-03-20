@@ -5715,12 +5715,33 @@ function createQuill(container, content, isView, onContentChange) {
     }
 
     if (content) {
-      // dangerouslyPasteHTMLはnbsp→通常スペース変換するため使わない。
-      // innerHTML直接セットでHTMLを復元し、Quillに認識させる。
-      q.root.innerHTML = content;
-      // Quillの内部状態を更新（historyリセット含む）
-      try { q.update('silent'); } catch {}
-      try { q.history.clear(); } catch {}
+      // dangerouslyPasteHTMLで復元（Blotツリー構築のため必要）
+      // Quillがnbsp→通常スペースに変換するので、復元後にDOMレベルで回復する
+      q.clipboard.dangerouslyPasteHTML(content);
+
+      // nbsp回復：保存HTMLの行頭nbspがQuillに消された場合、元HTMLと比較して復元
+      try {
+        const savedDiv = document.createElement('div');
+        savedDiv.innerHTML = content;
+        const savedBlocks = savedDiv.querySelectorAll('p, div, li, h1, h2, h3');
+        const editorBlocks = q.root.querySelectorAll('p, div, li, h1, h2, h3');
+        savedBlocks.forEach((savedBlock, i) => {
+          const editorBlock = editorBlocks[i];
+          if (!editorBlock) return;
+          // 最初のテキストノードを比較
+          const savedFirst = savedBlock.firstChild;
+          const editorFirst = editorBlock.firstChild;
+          if (savedFirst && savedFirst.nodeType === 3 && editorFirst && editorFirst.nodeType === 3) {
+            const savedText = savedFirst.nodeValue || '';
+            const editorText = editorFirst.nodeValue || '';
+            // 保存側がnbspで始まるのにエディタ側が通常スペースまたは消えている場合
+            if (savedText.startsWith('\u00A0') && !editorText.startsWith('\u00A0')) {
+              const nbspCount = savedText.match(/^\u00A0+/)[0].length;
+              editorFirst.nodeValue = '\u00A0'.repeat(nbspCount) + editorText.replace(/^ +/, '');
+            }
+          }
+        });
+      } catch {}
     }
 
     // ★ ペースト時に <p> を段内改行に変換する
