@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
-<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
 <title>TRPG Writer</title>
 <link rel="icon" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -179,7 +179,7 @@
     .nav-item.sub::before { content: "•"; margin-right: 6px; color: var(--line); }
 
     /* Home View */
-    .home-wrap { padding: 24px; max-width: none; margin: 0; width: 100%; height:100%; overflow-y:auto; }
+    .home-wrap { padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); max-width: none; margin: 0; width: 100%; height:100%; overflow-y:auto; }
     .card-grid { display: grid; gap: 16px; margin-top: 20px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
     .scenario-card {
       background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 0;
@@ -822,7 +822,7 @@
     }
     .scene-status-select{
       font-size: 12px; padding: 6px 8px; border-radius: 8px; border:1px solid var(--line);
-      background: #fff;
+      background: var(--bg-panel); color: var(--text-main);
     }
     .scene-tags-input{
       font-size: 12px; padding: 6px 8px; border-radius: 8px; border:1px solid var(--line);
@@ -954,7 +954,7 @@
       }
 
       .main { overflow: hidden; }
-      .home-wrap { padding: 16px; }
+      .home-wrap { padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 48px)); }
       .card-grid { grid-template-columns: 1fr; }
 
       /* Home: keep JSON controls available (icon buttons) */
@@ -975,13 +975,13 @@
       .editor-toolbar .mode-toggle { font-size: 13px; padding: 8px 12px; white-space: nowrap; }
 
       /* General spacing */
-      .editor-body { padding: 12px; padding-bottom: 120px; }
+      .editor-body { padding: 12px; padding-bottom: calc(120px + env(safe-area-inset-bottom, 20px)); }
       .chapter-header { padding: 12px; flex-wrap: wrap; gap: 10px; }
       .chapter-block > div:not(.chapter-header) { padding: 16px 12px; }
       .scene-header { padding: 10px 12px; flex-wrap: wrap; }
       .ql-editor { padding: 14px 14px; }
       .gallery-item { width: 100%; }
-      .view-mode-container { padding: 12px; }
+      .view-mode-container { padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 20px)); }
       .paper-header { padding: 26px 16px; }
       .paper-body { padding: 16px; }
       .char-count { display: none !important; }
@@ -1587,7 +1587,11 @@
   }
   .skill-name-view { color: var(--text-main); }
   .skill-check-label { color: var(--text-main); }
+  .skill-check-col.success .skill-check-label { color: #5eead4; border-bottom-color: rgba(var(--c-teal-rgb),0.45); }
+  .skill-check-col.failure .skill-check-label { color: #fda4af; border-bottom-color: rgba(var(--c-pink-rgb),0.45); }
   .skill-check-col-head { color: var(--text-main); }
+  .skill-check-col.success .skill-check-label { color: #6ee7b7; border-bottom-color: rgba(var(--c-teal-rgb),0.50); }
+  .skill-check-col.failure .skill-check-label { color: #fda4af; border-bottom-color: rgba(var(--c-pink-rgb),0.50); }
 
   /* ダークモード：KPメモ（本文内フロート） */
   .kp-note {
