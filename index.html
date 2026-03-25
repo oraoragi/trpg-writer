@@ -5718,8 +5718,9 @@ function createQuill(container, content, isView, onContentChange) {
       // Quillのクリップボードはnbsp(\u00A0)を通常スペースに正規化してしまう。
       // 回避策: dangerouslyPasteHTML前にnbspをプレースホルダに変換し、
       //         復元後にDOMのテキストノード内のプレースホルダをnbspに戻す。
-      const NBSP_PH = '\uFFF9';  // プレースホルダ（通常テキストには出現しない制御文字）
-      const safeContent = content.replace(/\u00A0/g, NBSP_PH);
+      const NBSP_PH = '\uFFF9';
+      // innerHTML は &nbsp; エンティティまたは \u00A0 生文字のどちらかで出力する
+      const safeContent = content.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
       q.clipboard.dangerouslyPasteHTML(safeContent);
       // プレースホルダをnbspに復元
       const walker = document.createTreeWalker(q.root, NodeFilter.SHOW_TEXT);
