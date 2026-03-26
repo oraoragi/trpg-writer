@@ -2378,6 +2378,17 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
     const tpl = document.createElement('template');
     tpl.innerHTML = html || "";
     tpl.content.querySelectorAll('.copybox-remove').forEach(el => el.remove());
+    // 各ブロック要素の先頭テキストノードの行頭スペースを &nbsp; に変換
+    // （Quillは入力時のnbspを通常スペースとして保持するため、保存時に変換が必要）
+    tpl.content.querySelectorAll('p, div, li, h1, h2, h3').forEach(block => {
+      const first = block.firstChild;
+      if (first && first.nodeType === 3) {
+        const t = first.nodeValue;
+        if (t && /^ +/.test(t)) {
+          first.nodeValue = t.replace(/^( +)/, (m) => '\u00A0'.repeat(m.length));
+        }
+      }
+    });
     return tpl.innerHTML;
   }
 
@@ -5715,11 +5726,8 @@ function createQuill(container, content, isView, onContentChange) {
     }
 
     if (content) {
-      // Quillのクリップボードはnbsp(\u00A0)を通常スペースに正規化してしまう。
-      // 回避策: dangerouslyPasteHTML前にnbspをプレースホルダに変換し、
-      //         復元後にDOMのテキストノード内のプレースホルダをnbspに戻す。
+      // 保存HTMLの行頭nbspをプレースホルダに変換してQuillの正規化を回避
       const NBSP_PH = '\uFFF9';
-      // innerHTML は &nbsp; エンティティまたは \u00A0 生文字のどちらかで出力する
       const safeContent = content.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
       q.clipboard.dangerouslyPasteHTML(safeContent);
       // プレースホルダをnbspに復元
