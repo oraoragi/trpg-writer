@@ -5728,14 +5728,18 @@ function createQuill(container, content, isView, onContentChange) {
     if (content) {
       // 保存HTMLの行頭nbspをプレースホルダに変換してQuillの正規化を回避
       const NBSP_PH = '\uFFF9';
-      const safeContent = content.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
+      const IDESP_PH = '\uFFFA'; // 全角スペース保護用プレースホルダ
+      let safeContent = content.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
+      safeContent = safeContent.replace(/\u3000/g, IDESP_PH); // 全角スペースを保護
       q.clipboard.dangerouslyPasteHTML(safeContent);
-      // プレースホルダをnbspに復元
+      // プレースホルダを復元
       const walker = document.createTreeWalker(q.root, NodeFilter.SHOW_TEXT);
       let tNode;
       while ((tNode = walker.nextNode())) {
-        if (tNode.nodeValue && tNode.nodeValue.includes(NBSP_PH)) {
-          tNode.nodeValue = tNode.nodeValue.replace(new RegExp(NBSP_PH, 'g'), '\u00A0');
+        if (tNode.nodeValue && (tNode.nodeValue.includes(NBSP_PH) || tNode.nodeValue.includes(IDESP_PH))) {
+          tNode.nodeValue = tNode.nodeValue
+            .replace(new RegExp(NBSP_PH, 'g'), '\u00A0')
+            .replace(new RegExp(IDESP_PH, 'g'), '\u3000');
         }
       }
     }
