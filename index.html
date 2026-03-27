@@ -176,13 +176,13 @@
     .nav-item:hover { background: var(--bg-app); }
     .nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
     /* 章ナビ: 背景帯で視覚的に区別 */
-    .nav-item.nav-chapter { background: rgba(var(--c-navy-rgb), 0.06); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; margin-top: 6px; }
+    .nav-item.nav-chapter { background: #e8edf4; font-weight: 600; font-size: 14px; letter-spacing: 0.02em; margin-top: 6px; border-left: 3px solid #4a6fa5; }
     .nav-item.nav-chapter:first-child { margin-top: 0; }
-    .nav-item.nav-chapter:hover { background: rgba(var(--c-navy-rgb), 0.10); }
-    .nav-item.nav-chapter.active { background: var(--primary-soft); color: var(--primary); }
+    .nav-item.nav-chapter:hover { background: #dce3ee; }
+    .nav-item.nav-chapter.active { background: rgba(var(--c-blue-rgb), 0.22); color: var(--primary); border-left-color: var(--primary); font-weight: 700; }
     /* シーンナビ: 連番付き・1行省略 */
     .nav-item.sub { padding-left: 28px; font-size: 14px; color: var(--text-muted); }
-    .nav-item.sub::before { content: attr(data-num) "."; margin-right: 5px; color: var(--line); font-size: 12px; min-width: 1.4em; }
+    .nav-item.sub::before { content: attr(data-num) "."; margin-right: 5px; color: var(--text-muted); font-size: 12px; min-width: 1.4em; opacity: 0.85; }
     .nav-item.sub .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
     .nav-scenes { padding-bottom: 4px; }
 
@@ -1483,9 +1483,9 @@
   body { background: var(--bg-app); color: var(--text-main); }
   .sidebar { background: var(--bg-panel); border-right-color: var(--line); }
   .sidebar-footer { background: rgba(255,255,255,0.04); border-top-color: var(--line); }
-  .nav-item.nav-chapter { background: rgba(255,255,255,0.07); }
-  .nav-item.nav-chapter:hover { background: rgba(255,255,255,0.11); }
-  .nav-item.nav-chapter.active { background: var(--primary-soft); color: var(--primary); }
+  .nav-item.nav-chapter { background: rgba(255,255,255,0.08); border-left-color: #5a8fbf; }
+  .nav-item.nav-chapter:hover { background: rgba(255,255,255,0.12); }
+  .nav-item.nav-chapter.active { background: rgba(var(--c-teal-rgb), 0.25); color: var(--primary); }
   .scenario-card { background: var(--bg-panel); border-color: var(--line); }
   .editor-toolbar { background: var(--bg-panel); border-bottom-color: var(--line); }
   .chapter-block, .scene-block { background: var(--bg-panel); border-color: var(--line); }
