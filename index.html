@@ -401,6 +401,8 @@
   font-size: 16px;
   align-items: center; justify-content: center;
   color: var(--text-muted); font-weight: 700;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 @media (max-width: 820px) {
   .ql-toolbar .ql-formats.tb-extra { display: none !important; }
@@ -471,9 +473,10 @@
       cursor: grabbing;
     }
     .img-x {
-      position: absolute; top: 6px; right: 6px; width: 24px; height: 24px;
+      position: absolute; top: 6px; right: 6px; width: 28px; height: 28px;
       background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%;
-      text-align: center; line-height: 22px; cursor: pointer; transition: opacity .2s;
+      text-align: center; line-height: 26px; cursor: pointer; transition: opacity .2s;
+      font-size: 16px; z-index: 5; touch-action: manipulation;
     }
     .img-x:hover { background: #ef4444; }
 
@@ -764,10 +767,11 @@
 
   
     .img-handle{
-      position:absolute; left:6px; bottom:6px; width:24px; height:24px;
+      position:absolute; left:6px; bottom:6px; width:28px; height:28px;
       background: rgba(0,0,0,0.35); color:#fff; border-radius:6px;
       display:flex; align-items:center; justify-content:center;
-      font-size:14px; line-height:1; cursor: grab; user-select:none;
+      font-size:16px; line-height:1; cursor: grab; user-select:none;
+      z-index: 5; touch-action: none;
     }
     .view-content .img-handle{ display:none !important; }
 
@@ -4508,18 +4512,15 @@ static initSortable(gridElement, containerNode) {
 
         // Prevent Sortable/Quill from treating delete as drag or selection
         ["pointerdown","mousedown","touchstart"].forEach(ev => {
-          btn.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+          btn.addEventListener(ev, (e) => { e.stopPropagation(); }, true);
         });
 
-        btn.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
+        // 画像削除の実行関数
+        const doDelete = () => {
           item.remove();
-
           const currentList = Array.from(grid.querySelectorAll(".gallery-item img"))
             .map(x => x.getAttribute("src"))
             .filter(Boolean);
-
           const galleryNode = grid.closest(".img-gallery");
           if (galleryNode) {
             galleryNode.dataset.images = JSON.stringify(currentList);
@@ -4529,6 +4530,19 @@ static initSortable(gridElement, containerNode) {
               galleryNode.dispatchEvent(new Event("gallery-changed", { bubbles: true }));
             }
           }
+        };
+
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          doDelete();
+        }, true);
+
+        // スマホ: touchstartのpreventDefaultでclickが抑制されるため、touchendで直接処理
+        btn.addEventListener("touchend", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          doDelete();
         }, true);
 
         item.appendChild(img);
@@ -5728,9 +5742,9 @@ function createQuill(container, content, isView, onContentChange) {
     if (content) {
       // 保存HTMLの行頭nbspをプレースホルダに変換してQuillの正規化を回避
       const NBSP_PH = '\uFFF9';
-      const IDESP_PH = '\uFFFA'; // 全角スペース保護用プレースホルダ
+      const IDESP_PH = '\uFFFA';
       let safeContent = content.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
-      safeContent = safeContent.replace(/\u3000/g, IDESP_PH); // 全角スペースを保護
+      safeContent = safeContent.replace(/\u3000/g, IDESP_PH);
       q.clipboard.dangerouslyPasteHTML(safeContent);
       // プレースホルダを復元
       const walker = document.createTreeWalker(q.root, NodeFilter.SHOW_TEXT);
@@ -5804,16 +5818,15 @@ function createQuill(container, content, isView, onContentChange) {
     if (!isView) {
       const toolbar = q.getModule('toolbar');
 
-      // ★ モバイル折りたたみ：2番目以降のql-formatsグループを折りたたみ対象にする
+      // ★ モバイル折りたたみ：最初のql-formatsグループのみ常時表示、残りは「⋯」に格納
       try {
         const tbEl = toolbar.container;
         if (tbEl) {
           const groups = tbEl.querySelectorAll('.ql-formats');
-          // 最初の2グループ（見出し/サイズ + B/I/U/色）は常に表示、残りは折りたたみ
           groups.forEach((g, i) => {
-            if (i >= 2) g.classList.add('tb-extra');
+            if (i >= 1) g.classList.add('tb-extra');
           });
-          // トグルボタンを追加
+          // トグルボタンを最初のグループの直後に配置
           const toggleBtn = document.createElement('button');
           toggleBtn.type = 'button';
           toggleBtn.className = 'tb-toggle-btn';
@@ -5827,7 +5840,12 @@ function createQuill(container, content, isView, onContentChange) {
             extras.forEach(g => g.classList.toggle('tb-show', !isShown));
             toggleBtn.textContent = isShown ? '⋯' : '✕';
           });
-          tbEl.appendChild(toggleBtn);
+          const firstGroup = tbEl.querySelector('.ql-formats');
+          if (firstGroup && firstGroup.nextSibling) {
+            tbEl.insertBefore(toggleBtn, firstGroup.nextSibling);
+          } else {
+            tbEl.appendChild(toggleBtn);
+          }
         }
       } catch {}
 
