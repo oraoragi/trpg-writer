@@ -172,11 +172,19 @@
 
     /* Navigation List */
     .nav-list { display: flex; flex-direction: column; gap: 2px; }
-    .nav-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 15px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: background .1s; }
+    .nav-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 15px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; transition: background .1s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .nav-item:hover { background: var(--bg-app); }
     .nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
-    .nav-item.sub { padding-left: 28px; font-size: 15px; color: var(--text-muted); }
-    .nav-item.sub::before { content: "•"; margin-right: 6px; color: var(--line); }
+    /* 章ナビ: 背景帯で視覚的に区別 */
+    .nav-item.nav-chapter { background: rgba(var(--c-navy-rgb), 0.06); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; margin-top: 6px; }
+    .nav-item.nav-chapter:first-child { margin-top: 0; }
+    .nav-item.nav-chapter:hover { background: rgba(var(--c-navy-rgb), 0.10); }
+    .nav-item.nav-chapter.active { background: var(--primary-soft); color: var(--primary); }
+    /* シーンナビ: 連番付き・1行省略 */
+    .nav-item.sub { padding-left: 28px; font-size: 14px; color: var(--text-muted); }
+    .nav-item.sub::before { content: attr(data-num) "."; margin-right: 5px; color: var(--line); font-size: 12px; min-width: 1.4em; }
+    .nav-item.sub .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+    .nav-scenes { padding-bottom: 4px; }
 
     /* Home View */
     .home-wrap { padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); max-width: none; margin: 0; width: 100%; height:100%; overflow-y:auto; }
@@ -1475,6 +1483,9 @@
   body { background: var(--bg-app); color: var(--text-main); }
   .sidebar { background: var(--bg-panel); border-right-color: var(--line); }
   .sidebar-footer { background: rgba(255,255,255,0.04); border-top-color: var(--line); }
+  .nav-item.nav-chapter { background: rgba(255,255,255,0.07); }
+  .nav-item.nav-chapter:hover { background: rgba(255,255,255,0.11); }
+  .nav-item.nav-chapter.active { background: var(--primary-soft); color: var(--primary); }
   .scenario-card { background: var(--bg-panel); border-color: var(--line); }
   .editor-toolbar { background: var(--bg-panel); border-bottom-color: var(--line); }
   .chapter-block, .scene-block { background: var(--bg-panel); border-color: var(--line); }
@@ -6950,8 +6961,9 @@ dom.scenarioTitle.value = s.title;
     s.chapters.forEach(ch => {
       // 章ナビ（非表示章は章タイトルのみ）
       const navItem = document.createElement("div");
-      navItem.className = "nav-item" + (ch.id === activeChapterId ? " active" : "");
+      navItem.className = "nav-item nav-chapter" + (ch.id === activeChapterId ? " active" : "");
       navItem.textContent = ch.title;
+      navItem.title = ch.title;
       navItem.onclick = () => { setCurrentChapter(s, ch.id); if (isMobileLayout()) closeMobileMenu(); };
       dom.nav.appendChild(navItem);
 
@@ -7058,9 +7070,15 @@ dom.scenarioTitle.value = s.title;
 
             const appendSceneBlock = (sc) => {
         // 目次（表示中の章のシーンのみ）
+        const sceneIndex = activeScenesNav ? activeScenesNav.querySelectorAll('.nav-item.sub').length + 1 : 1;
         const subNav = document.createElement("div");
         subNav.className = "nav-item sub";
-        subNav.textContent = sc.title;
+        subNav.dataset.num = sceneIndex;
+        subNav.title = sc.title;
+        const label = document.createElement("span");
+        label.className = "nav-label";
+        label.textContent = sc.title;
+        subNav.appendChild(label);
         subNav.onclick = () => document.getElementById(`sc-${sc.id}`)?.scrollIntoView({ behavior: "smooth" });
         activeScenesNav?.appendChild(subNav);
 
@@ -7298,8 +7316,9 @@ dom.scenarioTitle.value = s.title;
 
     visibleChapters.forEach(ch => {
       const navItem = document.createElement("div");
-      navItem.className = "nav-item" + (ch.id === activeChapterId ? " active" : "");
+      navItem.className = "nav-item nav-chapter" + (ch.id === activeChapterId ? " active" : "");
       navItem.textContent = ch.title;
+      navItem.title = ch.title;
       navItem.onclick = () => setCurrentChapter(s, ch.id);
       dom.nav.appendChild(navItem);
 
@@ -7311,12 +7330,18 @@ dom.scenarioTitle.value = s.title;
       activeScenesNav.dataset.chapterId = ch.id;
       dom.nav.appendChild(activeScenesNav);
 
-      (ch.scenes || []).forEach(sc => {
+      (ch.scenes || []).forEach((sc, scIdx) => {
         if (!SCENE_STATUS[sc.status]) sc.status = "unused";
         if (sc.status === "used" || sc.status === "skipped") return;
+        const sceneIndex = activeScenesNav.querySelectorAll('.nav-item.sub').length + 1;
         const subNav = document.createElement("div");
         subNav.className = "nav-item sub";
-        subNav.textContent = sc.title;
+        subNav.dataset.num = sceneIndex;
+        subNav.title = sc.title;
+        const label = document.createElement("span");
+        label.className = "nav-label";
+        label.textContent = sc.title;
+        subNav.appendChild(label);
         subNav.onclick = () => document.getElementById(`view-sc-${sc.id}`)?.scrollIntoView({ behavior: "smooth" });
         activeScenesNav.appendChild(subNav);
       });
