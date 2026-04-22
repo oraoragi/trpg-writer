@@ -5513,7 +5513,6 @@ const moveKpNoteLine = (noteEl, dir) => {
 
     // Quillに変更を通知（silent でDOMの変化をDeltaに反映）
     qq.update('silent');
-    try { qq.history.cutoff(); } catch {}
 
     st.markDirty && st.markDirty();
 
@@ -5543,7 +5542,6 @@ const moveKpNoteLine = (noteEl, dir) => {
     }
 
     qq.updateContents(new Delta().retain(firstStart).delete(deleteLen).concat(insertDelta), 'user');
-    try { qq.history.cutoff(); } catch {}
     st.markDirty && st.markDirty();
 
     focusWidgetAtIndex(qq, newStart, '.kp-note', '.kp-note-text');
@@ -5660,7 +5658,7 @@ function createQuill(container, content, isView, onContentChange) {
       theme: 'snow',
       modules: {
         toolbar: toolbarOptions,
-        history: { delay: 0, maxStack: 200, userOnly: true }
+        history: false
       },
       readOnly: isView,
       // カスタムBlotが閲覧モードで消えないように formats を明示
@@ -5831,7 +5829,6 @@ function createQuill(container, content, isView, onContentChange) {
           }
 
           q.updateContents(d, 'user');
-          try { q.history.cutoff(); } catch {}
           q.setSelection(range.index - (range.length > 0 ? 0 : 0) + contentLen, 0, 'silent');
         } catch {}
       }, true);
@@ -5884,6 +5881,103 @@ function createQuill(container, content, isView, onContentChange) {
       } catch {}
       return q.root ? q.root.innerHTML : "";
     };
+
+    // --- 独自スナップショット Undo/Redo ---
+    // Quillのhistoryモジュールは複数操作の不完全マージでコピーボックスを壊すため、
+    // HTMLスナップショット方式の独自スタックで実装する。
+    {
+      const SNAP_MAX = 100;
+      const undoStack = [];   // [{ html, selIndex, selLength }, ...]
+      const redoStack = [];
+
+      let _snapPending = false;
+      let _snapLastHtml = null;
+      let _suppressSnap = false;
+
+      const takeSnapshot = () => {
+        if (_suppressSnap) return;
+        const html = getHtmlForSave();
+        if (html === _snapLastHtml) return;  // 変化がなければ積まない
+        _snapLastHtml = html;
+        const range = q.getSelection();
+        undoStack.push({ html, selIndex: range ? range.index : 0, selLength: range ? range.length : 0 });
+        if (undoStack.length > SNAP_MAX) undoStack.shift();
+        redoStack.length = 0;  // 新操作でredoをクリア
+      };
+
+      const scheduleSnapshot = () => {
+        if (_snapPending) return;
+        _snapPending = true;
+        // 操作完了後（microtask後）に撮影
+        Promise.resolve().then(() => {
+          _snapPending = false;
+          takeSnapshot();
+        });
+      };
+
+      const restoreSnapshot = (snap) => {
+        if (!snap) return;
+        _suppressSnap = true;
+        try {
+          const NBSP_PH = '\uFFF9';
+          const IDESP_PH = '\uFFFA';
+          let safe = snap.html.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
+          safe = safe.replace(/\u3000/g, IDESP_PH);
+          q.clipboard.dangerouslyPasteHTML(safe);
+          const walker = document.createTreeWalker(q.root, NodeFilter.SHOW_TEXT);
+          let tn;
+          while ((tn = walker.nextNode())) {
+            if (tn.nodeValue && (tn.nodeValue.includes(NBSP_PH) || tn.nodeValue.includes(IDESP_PH))) {
+              tn.nodeValue = tn.nodeValue
+                .replace(new RegExp(NBSP_PH, 'g'), '\u00A0')
+                .replace(new RegExp(IDESP_PH, 'g'), '\u3000');
+            }
+          }
+          // カーソル位置を復元
+          try {
+            const maxIdx = Math.max(0, q.getLength() - 1);
+            q.setSelection(Math.min(snap.selIndex, maxIdx), snap.selLength, 'silent');
+          } catch {}
+          _snapLastHtml = getHtmlForSave();
+          scheduleScenarioSave(onContentChange, getHtmlForSave);
+        } catch {}
+        _suppressSnap = false;
+      };
+
+      // 初期スナップショット（空状態）
+      setTimeout(() => { _snapLastHtml = getHtmlForSave(); }, 0);
+
+      // text-changeで操作後にスナップショット予約
+      q.on('text-change', () => {
+        scheduleSnapshot();
+      });
+
+      // undo: 現在状態をredoスタックに積んでundoスタックから復元
+      q.__trpgUndo = () => {
+        takeSnapshot();  // 現在を確定
+        if (undoStack.length === 0) return;
+        const current = undoStack.pop();
+        redoStack.push(current);
+        const target = undoStack[undoStack.length - 1];
+        if (!target) {
+          // スタックが空 = 初期状態に戻す
+          _suppressSnap = true;
+          q.setText('');
+          _suppressSnap = false;
+          _snapLastHtml = getHtmlForSave();
+          return;
+        }
+        restoreSnapshot(target);
+      };
+
+      // redo: redoスタックから復元してundoスタックに積む
+      q.__trpgRedo = () => {
+        if (redoStack.length === 0) return;
+        const target = redoStack.pop();
+        takeSnapshot();  // 現在をundoスタックに確定
+        restoreSnapshot(target);
+      };
+    }
 
     if (!isView) {
       const toolbar = q.getModule('toolbar');
@@ -6039,7 +6133,6 @@ function createQuill(container, content, isView, onContentChange) {
           newDelta = newDelta.insert('\n', { copybox: true });
 
           q.updateContents(newDelta, 'user');
-          try { q.history.cutoff(); } catch {}
 
           // カーソルを箱の末尾に
           const newEnd = range.index + insertOps.reduce((s, op) => {
@@ -6052,9 +6145,7 @@ function createQuill(container, content, isView, onContentChange) {
 
         // 選択なし：カーソル行をコピー箱化
         if (!inCopybox) {
-          try { q.history.cutoff(); } catch {}
           q.formatLine(range.index, 1, { copybox: true }, 'user');
-          try { q.history.cutoff(); } catch {}
         }
       });
 
@@ -6208,13 +6299,13 @@ try {
       undoBtn.type = 'button';
       undoBtn.className = 'ql-undo';
       undoBtn.title = '元に戻す（Ctrl+Z）';
-      undoBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); q.history.undo(); });
+      undoBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (q.__trpgUndo) q.__trpgUndo(); });
 
       const redoBtn = document.createElement('button');
       redoBtn.type = 'button';
       redoBtn.className = 'ql-redo';
       redoBtn.title = 'やり直し（Ctrl+Y）';
-      redoBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); q.history.redo(); });
+      redoBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); if (q.__trpgRedo) q.__trpgRedo(); });
 
       undoRedoGroup.appendChild(undoBtn);
       undoRedoGroup.appendChild(redoBtn);
@@ -6279,6 +6370,21 @@ try {
       q.root.addEventListener('keydown', (e) => {
         // IME確定中などは触らない
         if (e.isComposing) return;
+
+        // Ctrl+Z / Ctrl+Y / Cmd+Z / Cmd+Shift+Z → 独自undo/redo
+        if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+          const k = e.key.toLowerCase();
+          if (k === 'z' && !e.shiftKey) {
+            e.preventDefault(); e.stopPropagation();
+            if (q.__trpgUndo) q.__trpgUndo();
+            return;
+          }
+          if ((k === 'y') || (k === 'z' && e.shiftKey)) {
+            e.preventDefault(); e.stopPropagation();
+            if (q.__trpgRedo) q.__trpgRedo();
+            return;
+          }
+        }
 
         // If the event comes from an input/textarea inside widgets, do not hijack Enter.
         // (Otherwise, our soft-break handler can prevent newline insertion in plain text fields.)
