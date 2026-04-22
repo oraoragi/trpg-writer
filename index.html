@@ -5410,39 +5410,11 @@ const getLineInfoAtIndex = (qq, index) => {
   return { line, start, len, formats };
 };
 
-// Group consecutive copybox-formatted lines as one movable block.
-// This prevents "partial unboxing" when a copybox spans multiple Quill lines.
+// copybox は常に1ブロック = 1行なので、単純に単一行の範囲を返す
 const getGroupRangeAtLineStart = (qq, lineStart) => {
   const base = getLineInfoAtIndex(qq, lineStart);
   if (!base) return null;
-
-  const isCopy = !!(base.formats && base.formats.copybox);
-  if (!isCopy) return { start: base.start, len: base.len };
-
-  let start = base.start;
-  let len = base.len;
-
-  // Expand upward
-  while (start > 0) {
-    const probe = start - 1;
-    const prev = getLineInfoAtIndex(qq, probe);
-    if (!prev) break;
-    if (!(prev.formats && prev.formats.copybox)) break;
-    start = prev.start;
-    len += prev.len;
-  }
-
-  // Expand downward
-  while (true) {
-    const probe = start + len;
-    if (probe >= qq.getLength() - 1) break;
-    const next = getLineInfoAtIndex(qq, probe);
-    if (!next) break;
-    if (!(next.formats && next.formats.copybox)) break;
-    len += next.len;
-  }
-
-  return { start, len };
+  return { start: base.start, len: base.len };
 };
 
 const getGroupRangeAtIndex = (qq, index) => {
@@ -5523,6 +5495,7 @@ const moveKpNoteLine = (noteEl, dir) => {
   }
 
   qq.updateContents(new Delta().retain(firstStart).delete(deleteLen).concat(insertDelta), 'user');
+  try { qq.history.cutoff(); } catch {}
   st.markDirty && st.markDirty();
 
   focusWidgetAtIndex(qq, newStart, '.kp-note', '.kp-note-text');
@@ -5943,12 +5916,7 @@ function createQuill(container, content, isView, onContentChange) {
           const Delta = Quill.import('delta');
           const contents = q.getContents(range.index, range.length);
 
-          // 新しいDeltaを構築：
-          // 1) range前をretain
-          // 2) 選択部分をdelete
-          // 3) コンテンツを再挿入（\n → softbreak）し、末尾に copybox:\n を1つ追加
-          let newOps = new Delta().retain(range.index).delete(range.length);
-
+          // コンテンツのopsを走査し、\n → softbreak に変換したinsertOpsを構築
           const insertOps = [];
           const ops = contents.ops || [];
           for (let oi = 0; oi < ops.length; oi++) {
@@ -5961,28 +5929,21 @@ function createQuill(container, content, isView, onContentChange) {
               const lines = text.split('\n');
               for (let i = 0; i < lines.length; i++) {
                 if (lines[i]) insertOps.push({ insert: lines[i] });
-                if (i < lines.length - 1) {
-                  insertOps.push({ insert: { softbreak: true } });
-                }
+                if (i < lines.length - 1) insertOps.push({ insert: { softbreak: true } });
               }
             } else if (op.insert && typeof op.insert === 'object') {
-              const embedType = Object.keys(op.insert)[0];
-              if (embedType !== 'softbreak') {
-                // softbreakは既にテキスト分割で挿入済みなので重複しない
-                insertOps.push({ insert: op.insert });
-              } else {
-                insertOps.push({ insert: { softbreak: true } });
-              }
+              insertOps.push({ insert: op.insert });
             }
           }
 
-          // コンテンツ挿入ops + copyboxフォーマット付き\n（1つのブロック）
+          // Delta構築：retain → delete → コンテンツ再挿入 → copybox:\n
+          let newDelta = new Delta().retain(range.index).delete(range.length);
           for (const op of insertOps) {
-            newOps = newOps.insert(op.insert, op.attributes || undefined);
+            newDelta = newDelta.insert(op.insert, op.attributes || undefined);
           }
-          newOps = newOps.insert('\n', { copybox: true });
+          newDelta = newDelta.insert('\n', { copybox: true });
 
-          q.updateContents(newOps, 'user');
+          q.updateContents(newDelta, 'user');
           // この操作を独立したundo単位として確定
           try { q.history.cutoff(); } catch {}
 
