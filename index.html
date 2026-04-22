@@ -5660,7 +5660,7 @@ function createQuill(container, content, isView, onContentChange) {
       theme: 'snow',
       modules: {
         toolbar: toolbarOptions,
-        history: { delay: 500, maxStack: 100, userOnly: true }
+        history: { delay: 0, maxStack: 200, userOnly: true }
       },
       readOnly: isView,
       // カスタムBlotが閲覧モードで消えないように formats を明示
@@ -5798,6 +5798,43 @@ function createQuill(container, content, isView, onContentChange) {
         // <p>の内容をそのまま返し、末尾に改行1つ追加（段落間に空行を入れない）
         return delta.compose(new Delta().retain(delta.length()).insert('\n'));
       });
+    } catch {}
+
+    // ★ コピーボックス内へのペーストを横取り：\n を softbreak に変換してブロック分割を防ぐ
+    try {
+      q.root.addEventListener('paste', (e) => {
+        try {
+          const range = q.getSelection();
+          if (!range) return;
+          const fmt = q.getFormat(range.index) || {};
+          if (!fmt.copybox) return;
+
+          e.preventDefault();
+          e.stopPropagation();
+
+          const text = e.clipboardData && e.clipboardData.getData('text/plain');
+          if (!text) return;
+
+          // Delta一発構築: retain → delete(選択分) → テキスト+softbreak挿入
+          const Delta = Quill.import('delta');
+          let d = new Delta().retain(range.index);
+          if (range.length > 0) d = d.delete(range.length);
+
+          const lines = text.split('\n');
+          // 末尾の空行を除去
+          while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+
+          let contentLen = 0;
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i]) { d = d.insert(lines[i]); contentLen += lines[i].length; }
+            if (i < lines.length - 1) { d = d.insert({ softbreak: true }); contentLen += 1; }
+          }
+
+          q.updateContents(d, 'user');
+          try { q.history.cutoff(); } catch {}
+          q.setSelection(range.index - (range.length > 0 ? 0 : 0) + contentLen, 0, 'silent');
+        } catch {}
+      }, true);
     } catch {}
 
     // Widgets (技能判定 / KPメモ) の操作・保存・コピー
