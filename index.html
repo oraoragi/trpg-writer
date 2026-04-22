@@ -4339,8 +4339,8 @@ function createKpMemoAtSelection(q){
     }
 
     length() { return 1; }
-    value() { return "\n"; }
-    static value(node) { return "\n"; }
+    value() { return true; }
+    static value(node) { return true; }
   }
   Quill.register(SoftBreakBlot, true);
 class CopyBoxBlock extends Block {
@@ -5932,6 +5932,7 @@ function createQuill(container, content, isView, onContentChange) {
                 if (i < lines.length - 1) insertOps.push({ insert: { softbreak: true } });
               }
             } else if (op.insert && typeof op.insert === 'object') {
+              // embed（softbreak含む）はそのまま保持
               insertOps.push({ insert: op.insert });
             }
           }
