@@ -5938,58 +5938,68 @@ function createQuill(container, content, isView, onContentChange) {
         } catch {}
 
         // 選択範囲がある場合：選択内容（embed含む）を「1つのコピー箱」に変換
+        // Delta直接構築で1操作にまとめ、UNDOが正しく動くようにする
         if (range.length > 0) {
-          // Deltaで取得（探索者タグなどのembedも保持）
+          const Delta = Quill.import('delta');
           const contents = q.getContents(range.index, range.length);
 
-          // 選択部分を削除
-          q.deleteText(range.index, range.length, 'user');
+          // 新しいDeltaを構築：
+          // 1) range前をretain
+          // 2) 選択部分をdelete
+          // 3) コンテンツを再挿入（\n → softbreak）し、末尾に copybox:\n を1つ追加
+          let newOps = new Delta().retain(range.index).delete(range.length);
 
-          // コピー箱用の「1行」を確保
-          q.insertText(range.index, '\n', 'user');
-          q.formatLine(range.index, 1, { copybox: true }, 'user');
-
-          // Delta opsを走査して内容を再挿入
-          let insertAt = range.index;
-          for (const op of (contents.ops || [])) {
+          const insertOps = [];
+          const ops = contents.ops || [];
+          for (let oi = 0; oi < ops.length; oi++) {
+            const op = ops[oi];
             if (typeof op.insert === 'string') {
               let text = op.insert;
-              // 末尾の改行は除去（最後のopの場合）
-              if (text.endsWith('\n')) text = text.slice(0, -1);
+              // 末尾の改行を除去（Quillブロック区切り）
+              if (oi === ops.length - 1 && text.endsWith('\n')) text = text.slice(0, -1);
               if (!text) continue;
               const lines = text.split('\n');
               for (let i = 0; i < lines.length; i++) {
-                if (lines[i]) {
-                  q.insertText(insertAt, lines[i], 'user');
-                  insertAt += lines[i].length;
-                }
+                if (lines[i]) insertOps.push({ insert: lines[i] });
                 if (i < lines.length - 1) {
-                  q.insertEmbed(insertAt, 'softbreak', true, 'user');
-                  insertAt += 1;
+                  insertOps.push({ insert: { softbreak: true } });
                 }
               }
             } else if (op.insert && typeof op.insert === 'object') {
-              // embed（pctag, softbreak等）
               const embedType = Object.keys(op.insert)[0];
-              const embedValue = op.insert[embedType];
-              q.insertEmbed(insertAt, embedType, embedValue, 'user');
-              insertAt += 1;
+              if (embedType !== 'softbreak') {
+                // softbreakは既にテキスト分割で挿入済みなので重複しない
+                insertOps.push({ insert: op.insert });
+              } else {
+                insertOps.push({ insert: { softbreak: true } });
+              }
             }
           }
-          // 余分な空行を除去
-          try {
-            const next2 = q.getText(insertAt, 2);
-            if (next2 && next2.startsWith("\n\n")) {
-              q.deleteText(insertAt + 1, 1, 'silent');
-            }
-          } catch {}
-          q.setSelection(insertAt, 0, 'silent');
+
+          // コンテンツ挿入ops + copyboxフォーマット付き\n（1つのブロック）
+          for (const op of insertOps) {
+            newOps = newOps.insert(op.insert, op.attributes || undefined);
+          }
+          newOps = newOps.insert('\n', { copybox: true });
+
+          q.updateContents(newOps, 'user');
+          // この操作を独立したundo単位として確定
+          try { q.history.cutoff(); } catch {}
+
+          // カーソルを箱の末尾に
+          const newEnd = range.index + insertOps.reduce((s, op) => {
+            if (typeof op.insert === 'string') return s + op.insert.length;
+            return s + 1;
+          }, 0);
+          q.setSelection(newEnd, 0, 'silent');
           return;
         }
 
         // 選択なし：カーソル行をコピー箱化
         if (!inCopybox) {
+          try { q.history.cutoff(); } catch {}
           q.formatLine(range.index, 1, { copybox: true }, 'user');
+          try { q.history.cutoff(); } catch {}
         }
       });
 
