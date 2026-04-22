@@ -4339,8 +4339,8 @@ function createKpMemoAtSelection(q){
     }
 
     length() { return 1; }
-    value() { return true; }
-    static value(node) { return true; }
+    value() { return "\n"; }
+    static value(node) { return "\n"; }
   }
   Quill.register(SoftBreakBlot, true);
 class CopyBoxBlock extends Block {
@@ -5472,34 +5472,83 @@ const moveKpNoteLine = (noteEl, dir) => {
     if (cur.start + cur.len !== adj.start) return;
   }
 
-  const Delta = Quill.import('delta');
-  const curDelta = qq.getContents(cur.start, cur.len);
-  const adjDelta = qq.getContents(adj.start, adj.len);
+  // DOM直接swapで移動（getContents→concatはsoftbreak値の問題で分割が起きるため回避）
+  // curBlot/adjBlotのDOMノードをquill.root内で直接入れ替える
+  try {
+    const curBlot = Quill.find(qq.root.querySelector ? null : null); // fallback to index-based
+    const [curLeaf] = qq.getLeaf(cur.start);
+    const [adjLeaf] = qq.getLeaf(adj.start);
+    const curLine = curLeaf ? curLeaf.parent : null;
+    const adjLine = adjLeaf ? adjLeaf.parent : null;
 
-  const firstStart = Math.min(cur.start, adj.start);
-  const secondStart = Math.max(cur.start, adj.start);
-  const secondEnd = secondStart + (secondStart === cur.start ? cur.len : adj.len);
-  const deleteLen = secondEnd - firstStart;
+    // Blotのlineを取得
+    const getCurLine = () => {
+      const [line] = qq.getLine(cur.start);
+      return line;
+    };
+    const getAdjLine = () => {
+      const [line] = qq.getLine(adj.start);
+      return line;
+    };
 
-  // Build swapped delta
-  let insertDelta;
-  let newStart;
-  if (dir < 0) {
-    // [ADJ][CUR] -> [CUR][ADJ]
-    insertDelta = new Delta().concat(curDelta).concat(adjDelta);
-    newStart = adj.start;
-  } else {
-    // [CUR][ADJ] -> [ADJ][CUR]
-    insertDelta = new Delta().concat(adjDelta).concat(curDelta);
-    newStart = cur.start + adj.len;
+    const curLineBlot = getCurLine();
+    const adjLineBlot = getAdjLine();
+
+    if (!curLineBlot || !adjLineBlot) throw new Error('line not found');
+
+    const curNode = curLineBlot.domNode;
+    const adjNode = adjLineBlot.domNode;
+    const parent = curNode.parentNode;
+
+    if (!parent || adjNode.parentNode !== parent) throw new Error('different parents');
+
+    // DOM swap
+    if (dir < 0) {
+      // adjNode が curNode の前にある → curNode を adjNode の前に移動
+      parent.insertBefore(curNode, adjNode);
+    } else {
+      // adjNode が curNode の後にある → adjNode を curNode の前に移動
+      parent.insertBefore(adjNode, curNode);
+    }
+
+    // Quillに変更を通知（silent でDOMの変化をDeltaに反映）
+    qq.update('silent');
+    try { qq.history.cutoff(); } catch {}
+
+    st.markDirty && st.markDirty();
+
+    // 移動後の新しい位置にフォーカス
+    const newStart = dir < 0 ? adj.start : cur.start;
+    focusWidgetAtIndex(qq, newStart, '.kp-note', '.kp-note-text');
+    qq.setSelection(Math.min(newStart + 1, qq.getLength() - 1), 0, 'silent');
+  } catch {
+    // DOM swapに失敗した場合のフォールバック：従来のDelta方式
+    const Delta = Quill.import('delta');
+    const firstStart = Math.min(cur.start, adj.start);
+    const secondStart = Math.max(cur.start, adj.start);
+    const secondEnd = secondStart + (secondStart === cur.start ? cur.len : adj.len);
+    const deleteLen = secondEnd - firstStart;
+
+    const curDelta = qq.getContents(cur.start, cur.len);
+    const adjDelta = qq.getContents(adj.start, adj.len);
+
+    let insertDelta;
+    let newStart;
+    if (dir < 0) {
+      insertDelta = new Delta().concat(curDelta).concat(adjDelta);
+      newStart = adj.start;
+    } else {
+      insertDelta = new Delta().concat(adjDelta).concat(curDelta);
+      newStart = cur.start + adj.len;
+    }
+
+    qq.updateContents(new Delta().retain(firstStart).delete(deleteLen).concat(insertDelta), 'user');
+    try { qq.history.cutoff(); } catch {}
+    st.markDirty && st.markDirty();
+
+    focusWidgetAtIndex(qq, newStart, '.kp-note', '.kp-note-text');
+    qq.setSelection(Math.min(newStart + 1, qq.getLength() - 1), 0, 'silent');
   }
-
-  qq.updateContents(new Delta().retain(firstStart).delete(deleteLen).concat(insertDelta), 'user');
-  try { qq.history.cutoff(); } catch {}
-  st.markDirty && st.markDirty();
-
-  focusWidgetAtIndex(qq, newStart, '.kp-note', '.kp-note-text');
-  qq.setSelection(Math.min(newStart + 1, qq.getLength() - 1), 0, 'silent');
 };
 // （KPメモは本文内で並び替えるため、オフセット再計算処理は不要）
 
@@ -5917,6 +5966,8 @@ function createQuill(container, content, isView, onContentChange) {
           const contents = q.getContents(range.index, range.length);
 
           // コンテンツのopsを走査し、\n → softbreak に変換したinsertOpsを構築
+          // getContentsはsoftbreakを {insert: "\n"} として返す（value()="\n"のため）ので
+          // 文字列の\nも埋め込みの\nもすべてsoftbreakとして扱う
           const insertOps = [];
           const ops = contents.ops || [];
           for (let oi = 0; oi < ops.length; oi++) {
@@ -5926,14 +5977,20 @@ function createQuill(container, content, isView, onContentChange) {
               // 末尾の改行を除去（Quillブロック区切り）
               if (oi === ops.length - 1 && text.endsWith('\n')) text = text.slice(0, -1);
               if (!text) continue;
-              const lines = text.split('\n');
-              for (let i = 0; i < lines.length; i++) {
-                if (lines[i]) insertOps.push({ insert: lines[i] });
-                if (i < lines.length - 1) insertOps.push({ insert: { softbreak: true } });
+              const parts = text.split('\n');
+              for (let i = 0; i < parts.length; i++) {
+                if (parts[i]) insertOps.push({ insert: parts[i] });
+                if (i < parts.length - 1) insertOps.push({ insert: { softbreak: true } });
               }
             } else if (op.insert && typeof op.insert === 'object') {
-              // embed（softbreak含む）はそのまま保持
-              insertOps.push({ insert: op.insert });
+              const embedType = Object.keys(op.insert)[0];
+              if (embedType === 'softbreak') {
+                // softbreakは\nで返ってきているので上の文字列処理で対応済み
+                // ここには来ないはずだが念のため
+                insertOps.push({ insert: { softbreak: true } });
+              } else {
+                insertOps.push({ insert: op.insert });
+              }
             }
           }
 
@@ -5945,7 +6002,6 @@ function createQuill(container, content, isView, onContentChange) {
           newDelta = newDelta.insert('\n', { copybox: true });
 
           q.updateContents(newDelta, 'user');
-          // この操作を独立したundo単位として確定
           try { q.history.cutoff(); } catch {}
 
           // カーソルを箱の末尾に
