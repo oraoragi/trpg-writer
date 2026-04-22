@@ -69,9 +69,9 @@
   --kp-head-border: rgba(255,255,255,0.14);
   --kp-text-bg: rgba(255,255,255,0.10);
 
-  --skill-head-bg: #ffffff;
-  --skill-success-bg: rgba(var(--c-teal-rgb),0.28);
-  --skill-failure-bg: rgba(var(--c-pink-rgb),0.28);
+  --skill-head-bg: transparent;
+  --skill-success-bg: transparent;
+  --skill-failure-bg: transparent;
   --skill-flash-success: rgba(var(--c-teal-rgb),0.90);
   --skill-flash-failure: rgba(var(--c-pink-rgb),0.90);
 }
@@ -224,8 +224,8 @@
     #editorBodyContainer { background: linear-gradient(180deg, #e8edf2 0%, #dfe5ec 100%); }
 
     
-    .chapter-block { margin-bottom: 32px; background: var(--bg-panel); border: 1px solid rgba(var(--c-navy-rgb),0.10); border-radius: 16px; overflow: visible; box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02); }
-    .chapter-header { padding: 14px 20px; background: linear-gradient(135deg, rgba(var(--c-blue-rgb),0.05), rgba(var(--c-teal-rgb),0.03)); border-bottom: 1px solid var(--line); display:flex; align-items:center; gap:12px; justify-content:space-between; border-radius: 16px 16px 0 0; }
+    .chapter-block { margin-bottom: 24px; background: var(--bg-panel); border: 1px solid rgba(var(--c-navy-rgb),0.08); border-radius: 6px; overflow: visible; box-shadow: none; }
+    .chapter-header { padding: 14px 20px; background: linear-gradient(135deg, rgba(var(--c-blue-rgb),0.05), rgba(var(--c-teal-rgb),0.03)); border-bottom: 1px solid var(--line); display:flex; align-items:center; gap:12px; justify-content:space-between; border-radius: 6px 6px 0 0; }
     .chapter-title-input { font-size: 18px; font-weight: 700; border: 1px solid transparent; background: transparent; padding: 6px 8px; border-radius: 8px; }
     .chapter-title-input:focus { background: #fff; border-color: rgba(var(--c-blue-rgb),0.25); box-shadow: 0 0 0 3px rgba(var(--c-blue-rgb),0.08); }
 
@@ -238,18 +238,18 @@
     /* Scene separation: make boundaries clearer */
     .scene-block {
       background: var(--bg-panel);
-      border: 1px solid rgba(var(--c-navy-rgb),0.08);
-      border-radius: 14px;
+      border: 1px solid rgba(var(--c-navy-rgb),0.07);
+      border-radius: 4px;
       overflow: visible;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-      margin: 14px 0;
-      transition: box-shadow 0.2s;
+      box-shadow: none;
+      margin: 8px 0;
+      transition: border-color 0.15s;
     }
-    .scene-block:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .scene-block.scene-active { box-shadow: 0 0 0 2px rgba(var(--c-blue-rgb),0.25), 0 2px 8px rgba(0,0,0,0.06); }
+    .scene-block:hover { border-color: rgba(var(--c-navy-rgb),0.15); box-shadow: none; }
+    .scene-block.scene-active { border-color: rgba(var(--c-blue-rgb),0.35); box-shadow: none; }
     .scene-block:first-child { margin-top: 0; }
     .scene-block:last-child { margin-bottom: 0; }
-    .scene-header { padding: 10px 18px; background: rgba(var(--c-blue-rgb),0.02); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.07); position: relative; border-radius: 14px 14px 0 0; }
+    .scene-header { padding: 10px 18px; background: rgba(var(--c-blue-rgb),0.02); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.07); position: relative; border-radius: 4px 4px 0 0; }
     .scene-drag-handle { color: #c5cbd3; cursor: grab; }
     .scene-title-input { font-size: 17px; font-weight: 700; border: none; background: transparent; flex: 1; padding-right: 36px; }
 /* Scene header controls layout */
@@ -288,7 +288,7 @@
     .scene-block, .chapter-block, #editorBodyContainer { transform: none; }
 
     .ql-container { border: none !important; font-size: var(--editor-fontsize, 16px); font-family: inherit; }
-    .ql-editor { padding: 20px 24px; line-height: 1.7; min-height: 120px; }
+    .ql-editor { padding: 12px 18px; line-height: 1.65; min-height: 80px; }
     .ql-editor p { margin-bottom: 0.8em; }
     /* View mode font size */
     .view-content { font-size: var(--editor-fontsize, 16px); }
@@ -499,22 +499,24 @@
 
     /* Copy Box (Editor / View 共通) */
     .copy-box{
-      background: rgba(var(--c-blue-rgb),0.08); border:1px solid rgba(var(--c-blue-rgb),0.22);
-      padding:12px 56px 12px 16px;
+      background: rgba(var(--c-navy-rgb),0.07);
+      border: 1px solid rgba(var(--c-navy-rgb),0.13);
+      border-left: 3px solid rgba(var(--c-navy-rgb),0.30);
+      padding:4px 52px 4px 12px;
       position:relative;
       /* KPメモ（float:right）と同じ段落に来たとき、背景や枠が下に潜り込まないようBFC化 */
       display: flow-root;
-      margin:12px 0;
-      border-radius:8px;
+      margin:4px 0;
+      border-radius:0 3px 3px 0;
     }
     .copy-box::before{
       content:"COPY BOX";
       display:block;
-      font-size:10px;
+      font-size:9px;
       font-weight:800;
       letter-spacing:0.05em;
       color:var(--primary);
-      margin-bottom:6px;
+      margin-bottom:3px;
       user-select:none;
     }
     /* View mode では「クリックしてコピー」表記に差し替え */
@@ -670,37 +672,33 @@
     /* 閲覧モード：コピー箱 (リッチデザイン) */
     .view-content .copybox-remove { display: none; }
     .view-content .copy-box{
-      background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
-      border:1px solid #a7f3d0;
-      color:#166534;
-      padding:16px 22px;
-      border-radius:10px;
+      background: rgba(var(--c-navy-rgb),0.05);
+      border: 1px solid rgba(var(--c-navy-rgb),0.13);
+      border-left: 3px solid rgba(var(--c-navy-rgb),0.30);
+      color: inherit;
+      padding:6px 16px 6px 12px;
+      border-radius:0 3px 3px 0;
       cursor:pointer;
-      transition:all .2s;
+      transition:background .15s;
       position:relative;
-      overflow:hidden;
-      box-shadow: 0 2px 6px rgba(16,185,129,0.08);
-      margin:16px 0;
+      margin:4px 0;
     }
     .view-content .copy-box::before{
       content:"📋 クリックしてコピー";
-      color:#15803d;
-      opacity:0.7;
+      color: var(--text-muted);
+      opacity:0.8;
       font-weight:700;
-      font-size:11px;
-      margin-bottom:8px;
+      font-size:10px;
+      margin-bottom:4px;
       display:block;
       user-select:none;
       letter-spacing: 0.02em;
     }
     .view-content .copy-box:hover{
-      background: linear-gradient(135deg, #dcfce7, #d1fae5);
-      transform:translateY(-1px);
-      box-shadow: 0 4px 12px rgba(16,185,129,0.12);
+      background: rgba(var(--c-navy-rgb),0.09);
     }
     .view-content .copy-box:active{
-      transform:translateY(1px);
-      box-shadow:none;
+      background: rgba(var(--c-navy-rgb),0.12);
     }
 
     /* コピー成功時のエフェクト用 */
@@ -1015,10 +1013,10 @@
   position: relative;
   z-index: 2;
   border: 1px solid var(--kp-border);
-  border-left: 6px solid var(--kp-accent);
-  border-radius: 12px;
+  border-left: 3px solid var(--kp-accent);
+  border-radius: 4px;
   background: var(--kp-bg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 @media (max-width: 900px){
@@ -1195,21 +1193,21 @@
   display:flex;
   align-items:center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 6px;
   flex-wrap: nowrap;
 }
 
 .skill-check-label{
   display:inline-flex;
   align-items:center;
-  gap: 10px;
-  padding: 0 0 6px 0;
+  gap: 6px;
+  padding: 0 0 4px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 900;
   letter-spacing: 0.02em;
   margin: 0;
@@ -1220,24 +1218,24 @@
   user-select: none;
 }
 .skill-check-label::before{
-  font-size: 20px;
+  font-size: 15px;
   line-height: 1;
 }
 .skill-check-col.success{
-  background: var(--skill-success-bg);
-  box-shadow: inset 6px 0 0 rgba(var(--c-teal-rgb),0.95);
+  background: transparent;
+  box-shadow: inset 3px 0 0 rgba(var(--c-teal-rgb),0.80);
 }
 .skill-check-col.failure{
-  background: var(--skill-failure-bg);
-  box-shadow: inset 6px 0 0 rgba(var(--c-pink-rgb),0.95);
+  background: transparent;
+  box-shadow: inset 3px 0 0 rgba(var(--c-pink-rgb),0.80);
 }
 .skill-check-col.success .skill-check-label{
-  color: #072f2f;
-  border-bottom: 2px solid rgba(var(--c-teal-rgb),0.55);
+  color: var(--text-main);
+  border-bottom: 2px solid rgba(var(--c-teal-rgb),0.70);
 }
 .skill-check-col.failure .skill-check-label{
-  color: #3a0b1a;
-  border-bottom: 2px solid rgba(var(--c-pink-rgb),0.55);
+  color: var(--text-main);
+  border-bottom: 2px solid rgba(var(--c-pink-rgb),0.70);
 }
 .skill-check-col.success .skill-check-label::before{ content: "✓"; font-weight: 900; }
 .skill-check-col.failure .skill-check-label::before{ content: "×"; font-weight: 900; }
@@ -1287,22 +1285,24 @@
 }
 /* --- Skill Check Widget --- */
 .skill-check-widget{
-  margin: 12px 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  margin: 6px 0;
+  width: 67%;
+  border: none;
+  border-left: 2px solid rgba(var(--c-navy-rgb),0.15);
+  border-radius: 0;
   overflow: hidden;
-  background: var(--bg-panel);
-  box-shadow: var(--shadow-sm);
+  background: transparent;
+  box-shadow: none;
 }
 .skill-check-head{
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--skill-head-bg);
-  border-bottom: 1px solid var(--line);
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border-bottom: 2px solid rgba(var(--c-navy-rgb),0.20);
   font-weight: 800;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .skill-check-actions{
@@ -1332,21 +1332,21 @@
 }
 .skill-check-widget.readonly .skill-del-btn{ display: none; }
 .skill-check-head .skill-name{ font-weight: 800; }
-.skill-name-input{ font-size: 18px; font-weight: 800; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-family: var(--font-main); }
+.skill-name-input{ font-size: 17px; font-weight: 800; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-family: var(--font-main); }
 .skill-check-body{
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
 .skill-check-col{
   position: relative;
-  padding: 12px;
+  padding: 6px 8px;
   min-height: 0;
 }
 .skill-check-col + .skill-check-col{
-  border-left: 1px solid var(--line);
+  border-left: 1px solid rgba(var(--c-navy-rgb),0.10);
 }
-.skill-check-col.success{ background: var(--skill-success-bg); }
-.skill-check-col.failure{ background: var(--skill-failure-bg); }
+.skill-check-col.success{ background: transparent; }
+.skill-check-col.failure{ background: transparent; }
 
 .skill-check-text{
   white-space: pre-wrap;
@@ -1374,14 +1374,14 @@
   field-sizing: content;
   overflow: hidden;
   resize: none;
-  min-height: calc(1.65em + 20px);
-  padding: 10px 12px;
-  border-radius: 10px;
+  min-height: calc(1.5em + 8px);
+  padding: 4px 6px;
+  border-radius: 6px;
   border: none !important;                 /* 枠なし */
   background: transparent;
   color: var(--text-main);
   font-size: var(--editor-fontsize, 16px);
-  line-height: 1.65;
+  line-height: 1.55;
   outline: none !important;  box-shadow: none !important;
 }
 
@@ -1406,9 +1406,9 @@
 
 /* View側も読みやすい箱にする */
 .skill-text-view{
-  min-height: calc(1.65em + 20px);
-  padding: 10px 12px;
-  border-radius: 10px;
+  min-height: calc(1.5em + 8px);
+  padding: 4px 6px;
+  border-radius: 6px;
   border: 1px solid rgba(0,0,0,0.08);
   background: rgba(255,255,255,0.75);
 }
@@ -1473,9 +1473,9 @@
     --kp-head-border: rgba(243,244,246,0.18);
     --kp-text-bg: rgba(255,255,255,0.08);
 
-    --skill-head-bg: rgba(255,255,255,0.06);
-    --skill-success-bg: rgba(var(--c-teal-rgb),0.26);
-    --skill-failure-bg: rgba(var(--c-pink-rgb),0.22);
+    --skill-head-bg: transparent;
+    --skill-success-bg: transparent;
+    --skill-failure-bg: transparent;
     --skill-flash-success: rgba(var(--c-teal-rgb),0.95);
     --skill-flash-failure: rgba(var(--c-pink-rgb),0.95);
   }
