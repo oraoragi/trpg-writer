@@ -79,10 +79,12 @@
     body { margin: 0; font-family: var(--font-main); background: var(--bg-app); color: var(--text-main); height: 100vh; overflow: hidden; font-size: 16px; }
 
     /* --- Layout Structure --- */
-    .app { display: grid; grid-template-columns: 280px 1fr; height: 100vh; }
+    .app { display: grid; grid-template-columns: 280px 1fr; height: 100vh; transition: grid-template-columns .22s ease; }
+    .app.sidebar-collapsed { grid-template-columns: 0 1fr; }
+    .app.sidebar-collapsed .sidebar { transform: translateX(-100%); visibility: hidden; }
     
     /* Sidebar */
-    .sidebar { background: var(--bg-panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 20; overflow: hidden; }
+    .sidebar { background: var(--bg-panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 20; overflow: hidden; transition: transform .22s ease; }
     .sidebar-header { padding: 16px; border-bottom: 1px solid var(--line); }
     .brand { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main); }
     .brand::before{
@@ -219,39 +221,40 @@
       position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between;
       box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
-    .editor-body { padding: 24px; max-width: none; margin: 0; width: 100%; padding-bottom: 100px; }
+    .editor-body { padding: 24px 8px 100px 24px; max-width: none; margin: 0; width: 100%; }
     /* Editor mode: soft gradient background */
     #editorBodyContainer { background: linear-gradient(180deg, #e8edf2 0%, #dfe5ec 100%); }
 
     
-    .chapter-block { margin-bottom: 24px; background: var(--bg-panel); border: 1px solid rgba(var(--c-navy-rgb),0.08); border-radius: 6px; overflow: visible; box-shadow: none; }
-    .chapter-header { padding: 14px 20px; background: linear-gradient(135deg, rgba(var(--c-blue-rgb),0.05), rgba(var(--c-teal-rgb),0.03)); border-bottom: 1px solid var(--line); display:flex; align-items:center; gap:12px; justify-content:space-between; border-radius: 6px 6px 0 0; }
-    .chapter-title-input { font-size: 18px; font-weight: 700; border: 1px solid transparent; background: transparent; padding: 6px 8px; border-radius: 8px; }
+    .chapter-block { margin-bottom: 40px; background: transparent; border: none; border-radius: 0; overflow: visible; box-shadow: none; }
+    .chapter-header { padding: 0 0 12px 0; background: transparent; border: none; border-bottom: 2px solid rgba(var(--c-navy-rgb),0.55); display:flex; align-items:center; gap:12px; justify-content:space-between; border-radius: 0; margin-bottom: 20px; }
+    .chapter-title-input { font-size: 24px; font-weight: 800; border: 1px solid transparent; background: transparent; padding: 6px 8px; border-radius: 8px; letter-spacing: 0.03em; }
     .chapter-title-input:focus { background: #fff; border-color: rgba(var(--c-blue-rgb),0.25); box-shadow: 0 0 0 3px rgba(var(--c-blue-rgb),0.08); }
 
     /* Scene container background so gaps between scenes are visible */
     .chapter-block > div:not(.chapter-header){
-      background: rgba(var(--c-navy-rgb),0.03);
-      padding: 20px;
+      background: transparent;
+      padding: 0;
     }
 
     /* Scene separation: make boundaries clearer */
     .scene-block {
       background: var(--bg-panel);
-      border: 1px solid rgba(var(--c-navy-rgb),0.07);
-      border-radius: 4px;
+      border: 1px solid rgba(var(--c-navy-rgb),0.10);
+      border-left: 4px solid rgba(var(--c-navy-rgb),0.18);
+      border-radius: 8px;
       overflow: visible;
-      box-shadow: none;
-      margin: 8px 0;
-      transition: border-color 0.15s;
+      box-shadow: 0 1px 3px rgba(var(--c-navy-rgb),0.04);
+      margin: 20px 0;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .scene-block:hover { border-color: rgba(var(--c-navy-rgb),0.15); box-shadow: none; }
-    .scene-block.scene-active { border-color: rgba(var(--c-blue-rgb),0.35); box-shadow: none; }
+    .scene-block:hover { border-color: rgba(var(--c-navy-rgb),0.18); box-shadow: 0 2px 8px rgba(var(--c-navy-rgb),0.06); }
+    .scene-block.scene-active { border-color: rgba(var(--c-blue-rgb),0.35); border-left-color: var(--accent); box-shadow: 0 2px 10px rgba(var(--c-blue-rgb),0.10); }
     .scene-block:first-child { margin-top: 0; }
     .scene-block:last-child { margin-bottom: 0; }
-    .scene-header { padding: 10px 18px; background: rgba(var(--c-blue-rgb),0.02); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.07); position: relative; border-radius: 4px 4px 0 0; }
+    .scene-header { padding: 14px 20px; background: linear-gradient(90deg, rgba(var(--c-teal-rgb),0.06), rgba(var(--c-blue-rgb),0.02) 60%, transparent); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.08); position: relative; border-radius: 4px 4px 0 0; }
     .scene-drag-handle { color: #c5cbd3; cursor: grab; }
-    .scene-title-input { font-size: 17px; font-weight: 700; border: none; background: transparent; flex: 1; padding-right: 36px; }
+    .scene-title-input { font-size: 20px !important; font-weight: 800; border: none; background: transparent; flex: 1; padding-right: 36px; letter-spacing: 0.02em; }
 /* Scene header controls layout */
     .scene-meta-row { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
     .scene-delete-btn {
@@ -499,30 +502,31 @@
 
     /* Copy Box (Editor / View 共通) */
     .copy-box{
-      background: rgba(var(--c-navy-rgb),0.07);
-      border: 1px solid rgba(var(--c-navy-rgb),0.13);
-      border-left: 3px solid rgba(var(--c-navy-rgb),0.30);
-      padding:4px 52px 4px 12px;
-      position:relative;
+      background: rgba(var(--c-blue-rgb),0.055);
+      border: 1px solid rgba(var(--c-blue-rgb),0.20);
+      border-left: 3px solid rgba(var(--c-blue-rgb),0.55);
+      padding: 10px 52px 10px 14px;
+      position: relative;
       /* KPメモ（float:right）と同じ段落に来たとき、背景や枠が下に潜り込まないようBFC化 */
       display: flow-root;
-      margin:4px 0;
-      border-radius:0 3px 3px 0;
+      margin: 12px 0;
+      border-radius: 8px;
     }
     .copy-box::before{
-      content:"COPY BOX";
-      display:block;
-      font-size:9px;
-      font-weight:800;
-      letter-spacing:0.05em;
-      color:var(--primary);
-      margin-bottom:3px;
-      user-select:none;
+      content: "📋 COPY BOX";
+      display: block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: var(--primary);
+      margin-bottom: 4px;
+      user-select: none;
+      opacity: 0.85;
     }
-    /* View mode では「クリックしてコピー」表記に差し替え */
+    /* View mode では ::before は非表示（::afterのアイコンに置き換え） */
     .view-content .copy-box::before{
-      content:"クリックしてコピー";
-      color:var(--accent);
+      content: "";
+      display: none;
     }
     .copybox-remove{
       position:absolute;
@@ -565,17 +569,22 @@
     .ccfolia-line + .ccfolia-line::before{ display: none; }
     /* 閲覧モード */
     .view-content .ccfolia-line{
-      border-left: 3px solid #d1d5db;
-      padding: 1px 12px 1px 12px;
+      border-left: 2px solid rgba(var(--c-navy-rgb),0.18);
+      padding: 1px 12px 1px 14px;
       background: transparent;
       cursor: pointer;
-      transition: background .15s;
+      transition: background .18s, border-color .18s;
     }
     .view-content .ccfolia-line:hover{
-      background: rgba(156,163,175,0.06);
+      background: rgba(var(--c-blue-rgb),0.06);
+      border-left-color: rgba(var(--c-blue-rgb),0.55);
     }
     .view-content .ccfolia-line::before{
-      content: "🎬 " attr(data-ccfolia-name) "　─ クリックしてコピー";
+      content: "🎬 " attr(data-ccfolia-name);
+      font-size: 9px;
+      font-weight: 600;
+      color: rgba(26,26,46,0.48);
+      letter-spacing: 0.04em;
     }
     .view-content .ccfolia-line + .ccfolia-line::before{ display: none; }
 
@@ -606,53 +615,70 @@
 
     /* 本文エリア */
     .paper-body {
-      padding: 28px 36px;
-      background: #faf9f7;
+      padding: 36px 44px;
+      background: #fbfaf8;
       color: #1a1a2e;
-      background-image:
-        repeating-linear-gradient(to bottom, transparent 0, transparent 1.75em, rgba(var(--c-navy-rgb),0.03) 1.75em, rgba(var(--c-navy-rgb),0.03) calc(1.75em + 1px)),
-        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.06'/%3E%3C/svg%3E");
     }
-    @media (max-width: 600px) { .paper-body { padding: 18px 16px; } }
+    @media (max-width: 600px) { .paper-body { padding: 20px 18px; } }
 
     /* 閲覧モード：章の見出し */
-    .view-chapter { margin-bottom: 48px; }
+    .view-chapter { margin-bottom: 72px; }
     .view-chapter-title {
-      font-size: 22px; font-weight: 800; color: #1a1a2e;
-      border-bottom: none;
-      padding: 12px 18px;
-      margin-bottom: 24px; margin-top: 0;
-      background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.08), rgba(var(--c-blue-rgb),0.06));
-      border-left: 4px solid var(--accent);
-      border-radius: 0 10px 10px 0;
-      letter-spacing: 0.02em;
+      font-size: 26px; font-weight: 800; color: #1a1a2e;
+      border: none;
+      border-bottom: 2px solid rgba(var(--c-navy-rgb),0.55);
+      padding: 0 0 12px 0;
+      margin-bottom: 36px; margin-top: 0;
+      background: transparent;
+      border-radius: 0;
+      letter-spacing: 0.03em;
     }
     
-    /* 閲覧モード：シーンの見出し */
+    /* 閲覧モード：シーンの見出し（完全なボックス） */
     .view-scene {
-      margin-bottom: 20px;
-      padding: 20px 24px;
+      margin-bottom: 28px;
+      padding: 24px 28px;
       background: #ffffff;
-      border: 1px solid rgba(var(--c-navy-rgb),0.08);
-      border-radius: 14px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-      transition: box-shadow 0.2s;
+      border: 1px solid rgba(var(--c-navy-rgb),0.10);
+      border-left: 4px solid rgba(var(--c-navy-rgb),0.22);
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(var(--c-navy-rgb),0.06);
+      position: relative;
+      transition: box-shadow .18s, border-left-color .18s;
     }
-    .view-scene:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+    .view-scene:hover {
+      box-shadow: 0 3px 12px rgba(var(--c-navy-rgb),0.10);
+      border-left-color: var(--accent);
+    }
     .view-scene-title {
-      font-size: 17px; font-weight: 700; color: #1a1a2e;
-      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
-      padding-bottom: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.06);
+      font-size: 22px !important; font-weight: 800; color: #1a1a2e;
+      display: flex; align-items: center; gap: 12px;
+      margin: 0 0 18px 0;
+      padding: 0 0 12px 0;
+      border: none;
+      border-bottom: 1px solid rgba(var(--c-navy-rgb),0.10);
+      background: transparent;
+      letter-spacing: 0.02em;
+      line-height: 1.35;
     }
-    .view-scene-title::before { content: ""; display: block; width: 5px; height: 22px; background: linear-gradient(180deg, var(--accent), var(--c-blue)); border-radius: 3px; flex-shrink: 0; }
+    .view-scene-title > span:first-child{
+      font-size: 22px !important;
+      font-weight: 800;
+    }
+    .view-scene-title::before { content: ""; display: none; }
+    @media (max-width: 600px){
+      .view-scene { padding: 18px 16px; margin-bottom: 20px; }
+      .view-scene-title,
+      .view-scene-title > span:first-child { font-size: 18px !important; }
+    }
 
     /* 閲覧モード：テキストスタイル */
     .view-content {
-      font-size: var(--editor-fontsize, 16px); line-height: 1.85; color: #2d2d44;
+      font-size: var(--editor-fontsize, 16px); line-height: 1.95; color: #2a2a3e;
       display: flow-root;
     }
     .view-content::after{ content:""; display:block; clear:both; }
-    .view-content p { margin-bottom: 1em; }
+    .view-content p { margin-bottom: 1.15em; }
 
     .view-content a{ color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
     .view-content a:hover{ color: var(--primary); }
@@ -669,36 +695,42 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
-    /* 閲覧モード：コピー箱 (リッチデザイン) */
+    /* 閲覧モード：コピー箱 (本文と明確に区別) */
     .view-content .copybox-remove { display: none; }
     .view-content .copy-box{
-      background: rgba(var(--c-navy-rgb),0.05);
-      border: 1px solid rgba(var(--c-navy-rgb),0.13);
-      border-left: 3px solid rgba(var(--c-navy-rgb),0.30);
+      background: rgba(var(--c-blue-rgb),0.055);
+      border: 1px solid rgba(var(--c-blue-rgb),0.20);
+      border-left: 3px solid rgba(var(--c-blue-rgb),0.55);
       color: inherit;
-      padding:6px 16px 6px 12px;
-      border-radius:0 3px 3px 0;
-      cursor:pointer;
-      transition:background .15s;
-      position:relative;
-      margin:4px 0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .18s, border-color .18s, transform .12s;
+      position: relative;
+      margin: 12px 0;
     }
     .view-content .copy-box::before{
-      content:"📋 クリックしてコピー";
-      color: var(--text-muted);
-      opacity:0.8;
-      font-weight:700;
-      font-size:10px;
-      margin-bottom:4px;
-      display:block;
-      user-select:none;
-      letter-spacing: 0.02em;
+      content: "";
+      display: none;
+    }
+    .view-content .copy-box::after{
+      content: "📋";
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 13px;
+      opacity: 0.35;
+      transition: opacity .18s;
+      pointer-events: none;
     }
     .view-content .copy-box:hover{
-      background: rgba(var(--c-navy-rgb),0.09);
+      background: rgba(var(--c-blue-rgb),0.10);
+      border-color: rgba(var(--c-blue-rgb),0.38);
     }
+    .view-content .copy-box:hover::after{ opacity: 0.85; }
     .view-content .copy-box:active{
-      background: rgba(var(--c-navy-rgb),0.12);
+      background: rgba(var(--c-blue-rgb),0.15);
+      transform: translateY(1px);
     }
 
     /* コピー成功時のエフェクト用 */
@@ -1012,11 +1044,22 @@
   margin-left: 14px;
   position: relative;
   z-index: 2;
-  border: 1px solid var(--kp-border);
-  border-left: 3px solid var(--kp-accent);
-  border-radius: 4px;
-  background: var(--kp-bg);
-  box-shadow: none;
+  border: none;
+  border-top: 1px solid rgba(161,98,7,0.22);
+  border-left: 3px solid rgba(161,98,7,0.55);
+  border-radius: 2px 10px 10px 2px;
+  background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
+  box-shadow: 0 2px 6px rgba(120,88,20,0.12), 0 1px 2px rgba(120,88,20,0.08);
+}
+.kp-note::before{
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 16px; height: 16px;
+  background: linear-gradient(135deg, rgba(0,0,0,0.08) 0%, transparent 50%);
+  border-radius: 0 0 10px 0;
+  pointer-events: none;
+  z-index: 3;
 }
 
 @media (max-width: 900px){
@@ -1143,50 +1186,66 @@
   padding: 4px 0;
 }
 
-/* --- Tuned emphasis: KPメモ（濃色） + 技能判定（視認性強化） --- */
+/* --- KPメモ（付箋デザイン） + 技能判定（視認性強化） --- */
 .kp-note{
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 55%, rgba(0,0,0,0.00) 100%),
-    var(--kp-bg);
-  border-color: var(--kp-border);
-  color: #f8fafc;
+  color: #3d2f0f;
 }
 .kp-note-head{
-  background: var(--kp-head-bg);
-  border-bottom-color: var(--kp-head-border);
-  color: #ffffff;
+  background: transparent;
+  border-bottom: 1px dashed rgba(161,98,7,0.30);
+  color: #78350f;
   position: relative;
   z-index: 2;
 }
-.kp-note-title{ color: #ffffff; }
+.kp-note-title{ color: #78350f; }
 .kp-note-badge{
-  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.22));
+  color: #92400e;
 }
 .kp-note-text{
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      rgba(255,255,255,0.06) 0,
-      rgba(255,255,255,0.06) 1px,
-      rgba(0,0,0,0) 1px,
-      rgba(0,0,0,0) 28px
-    ),
-    var(--kp-text-bg);
-  border-color: rgba(255,255,255,0.18);
-  color: #f8fafc;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(161,98,7,0.22);
+  color: #3d2f0f;
   position: relative;
   z-index: 2;
 }
 .kp-note-text::placeholder{
-  color: rgba(248,250,252,0.70);
+  color: rgba(120,53,15,0.50);
 }
 .kp-note-btn{
-  border-color: rgba(255,255,255,0.22);
-  background: rgba(255,255,255,0.10);
-  color: #ffffff;
+  border-color: rgba(161,98,7,0.30);
+  background: rgba(255,255,255,0.45);
+  color: #78350f;
 }
-.kp-note-btn:hover{ background: rgba(255,255,255,0.14); }
+.kp-note-btn:hover{ background: rgba(255,255,255,0.75); }
 .kp-note-btn:active{ transform: translateY(1px); }
+
+.kp-note-title-input{
+  border: 1px solid rgba(161,98,7,0.22);
+  background: rgba(255,255,255,0.55);
+  color: #3d2f0f;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 800;
+  font-family: var(--font-main);
+}
+.kp-note-title-input:focus{
+  border-color: rgba(161,98,7,0.55);
+  background: rgba(255,255,255,0.85);
+  box-shadow: 0 0 0 2px rgba(161,98,7,0.15);
+  outline: none;
+}
+.kp-note-title-input::placeholder{ color: rgba(120,53,15,0.40); }
+.kp-note-title-view{
+  font-size: 16px;
+  font-weight: 800;
+  color: #78350f;
+  padding: 4px 0;
+}
+.kp-note-drag{
+  border-color: rgba(161,98,7,0.30);
+  color: #78350f;
+}
 
 /* Skill check: make Success/Failure immediately scannable */
 .skill-check-col-head{
@@ -1285,10 +1344,10 @@
 }
 /* --- Skill Check Widget --- */
 .skill-check-widget{
-  margin: 6px 0;
-  width: 67%;
+  margin: 12px 0;
+  width: 100%;
   border: none;
-  border-left: 2px solid rgba(var(--c-navy-rgb),0.15);
+  border-left: 3px solid rgba(var(--c-navy-rgb),0.28);
   border-radius: 0;
   overflow: hidden;
   background: transparent;
@@ -1298,11 +1357,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   background: transparent;
-  border-bottom: 2px solid rgba(var(--c-navy-rgb),0.20);
+  border-bottom: 2px solid rgba(var(--c-navy-rgb),0.22);
   font-weight: 800;
-  font-size: 15px;
+  font-size: 18px;
 }
 
 .skill-check-actions{
@@ -1331,22 +1390,28 @@
   pointer-events: auto;
 }
 .skill-check-widget.readonly .skill-del-btn{ display: none; }
-.skill-check-head .skill-name{ font-weight: 800; }
-.skill-name-input{ font-size: 17px; font-weight: 800; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-family: var(--font-main); }
+.skill-check-head .skill-name{ font-weight: 800; font-size: 18px; }
+.skill-name-input{ font-size: 18px; font-weight: 800; border: 1px solid transparent; background: transparent; padding: 2px 4px; font-family: var(--font-main); }
 .skill-check-body{
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
 .skill-check-col{
   position: relative;
-  padding: 6px 8px;
+  padding: 8px 12px;
   min-height: 0;
 }
 .skill-check-col + .skill-check-col{
-  border-left: 1px solid rgba(var(--c-navy-rgb),0.10);
+  border-left: 1px solid rgba(var(--c-navy-rgb),0.14);
 }
-.skill-check-col.success{ background: transparent; }
-.skill-check-col.failure{ background: transparent; }
+.skill-check-col.success{
+  background: transparent;
+  box-shadow: inset 3px 0 0 rgba(var(--c-teal-rgb),0.80);
+}
+.skill-check-col.failure{
+  background: transparent;
+  box-shadow: inset 3px 0 0 rgba(var(--c-pink-rgb),0.80);
+}
 
 .skill-check-text{
   white-space: pre-wrap;
@@ -1440,6 +1505,93 @@
   .skill-check-col + .skill-check-col{ border-left: none; border-top: 1px solid var(--line); }
 }
 
+/* 閲覧モード：技能判定（編集モードと統一、左ラインで識別） */
+.view-content .skill-check-widget{
+  width: 100%;
+  margin: 14px 0;
+  border: none;
+  border-left: 3px solid rgba(var(--c-navy-rgb),0.28);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+}
+.view-content .skill-check-head{
+  padding: 6px 12px;
+  background: transparent;
+  border-bottom: 2px solid rgba(var(--c-navy-rgb),0.22);
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1a2e;
+}
+.view-content .skill-check-head .skill-name,
+.view-content .skill-name-view{
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1a2e;
+}
+.view-content .skill-check-col{
+  padding: 8px 12px;
+}
+.view-content .skill-check-col.success{
+  background: transparent !important;
+  box-shadow: inset 3px 0 0 rgba(var(--c-teal-rgb),0.80) !important;
+}
+.view-content .skill-check-col.failure{
+  background: transparent !important;
+  box-shadow: inset 3px 0 0 rgba(var(--c-pink-rgb),0.80) !important;
+}
+.view-content .skill-check-col + .skill-check-col{
+  border-left: 1px solid rgba(var(--c-navy-rgb),0.14);
+}
+.view-content .skill-check-col-head{
+  margin-bottom: 4px;
+}
+.view-content .skill-check-label{
+  font-size: 13px;
+  font-weight: 800;
+  border: none !important;
+  padding: 0 !important;
+  letter-spacing: 0.04em;
+}
+.view-content .skill-check-col.success .skill-check-label{
+  color: #0d9488 !important;
+}
+.view-content .skill-check-col.failure .skill-check-label{
+  color: #be1a4d !important;
+}
+.view-content .skill-check-label::before{
+  font-size: 13px;
+}
+.view-content .skill-text-view{
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  font-size: calc(var(--editor-fontsize, 16px) * 0.95);
+  line-height: 1.65;
+}
+.view-content .skill-copy-btn{
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(var(--c-navy-rgb),0.18);
+  color: #1a1a2e;
+  opacity: 0.7;
+  transition: opacity .18s, background .18s;
+}
+.view-content .skill-check-widget:hover .skill-copy-btn{ opacity: 1; }
+.view-content .skill-copy-btn:hover{
+  background: #ffffff;
+  color: var(--primary);
+}
+
+@media (max-width: 600px){
+  .view-content .skill-check-widget{ width: 100%; }
+  .view-content .skill-copy-btn{ opacity: 1; }
+}
+
 
 /* --- Dark Mode (auto) --- */
 @media (prefers-color-scheme: dark) {
@@ -1488,10 +1640,14 @@
   .nav-item.nav-chapter.active { background: rgba(var(--c-teal-rgb), 0.25); color: var(--primary); }
   .scenario-card { background: var(--bg-panel); border-color: var(--line); }
   .editor-toolbar { background: var(--bg-panel); border-bottom-color: var(--line); }
-  .chapter-block, .scene-block { background: var(--bg-panel); border-color: var(--line); }
-  .chapter-header, .scene-header { background: rgba(255,255,255,0.04); border-bottom-color: var(--line); }
+  .chapter-block { background: transparent; border: none; }
+  .chapter-header { background: transparent; border-bottom-color: rgba(255,255,255,0.30); }
+  .scene-block { background: var(--bg-panel); border: 1px solid rgba(255,255,255,0.10); border-left: 4px solid rgba(255,255,255,0.18); }
+  .scene-block:hover { border-color: rgba(255,255,255,0.18); }
+  .scene-block.scene-active { border-color: rgba(var(--c-teal-rgb),0.45); border-left-color: var(--c-teal); }
+  .scene-header { background: linear-gradient(90deg, rgba(var(--c-teal-rgb),0.10), transparent 60%); border-bottom-color: rgba(255,255,255,0.08); }
   #editorBodyContainer { background: #0f172a; }
-  .chapter-block > div:not(.chapter-header) { background: rgba(255,255,255,0.03); }
+  .chapter-block > div:not(.chapter-header) { background: transparent; }
 
   /* Quill toolbar / icons */
   .ql-toolbar { background: var(--bg-panel) !important; border-bottom-color: var(--line) !important; }
@@ -1509,13 +1665,64 @@
   .paper-body {
     background: #0b1220;
     color: var(--text-main);
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.10'/%3E%3C/svg%3E");
   }
-  .view-chapter-title { color: var(--text-main); border-bottom-color: var(--accent); }
-  .view-scene { background: #111827; border-color: var(--line); }
-  .view-scene-title { color: var(--text-main); }
+  .view-chapter-title { color: var(--text-main); border-bottom-color: rgba(255,255,255,0.30); }
+  .view-scene {
+    background: #111827;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-left: 4px solid rgba(255,255,255,0.18);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.30);
+  }
+  .view-scene:hover {
+    box-shadow: 0 3px 12px rgba(0,0,0,0.50);
+    border-left-color: var(--c-teal);
+  }
+  .view-scene-title {
+    color: var(--text-main);
+    border-bottom-color: rgba(255,255,255,0.14);
+    background: transparent;
+  }
   .view-content { color: var(--text-main); }
   .view-content a { color: var(--primary); }
+
+  /* ダークモード：閲覧モード技能判定（左ライン方式） */
+  .view-content .skill-check-widget{
+    background: transparent;
+    border: none;
+    border-left: 3px solid rgba(255,255,255,0.22);
+  }
+  .view-content .skill-check-head{
+    background: transparent;
+    border-bottom: 2px solid rgba(255,255,255,0.18);
+    color: var(--text-main);
+  }
+  .view-content .skill-check-head .skill-name,
+  .view-content .skill-name-view{
+    color: var(--text-main);
+  }
+  .view-content .skill-check-col.success{
+    background: transparent !important;
+    box-shadow: inset 3px 0 0 rgba(var(--c-teal-rgb),0.75) !important;
+  }
+  .view-content .skill-check-col.failure{
+    background: transparent !important;
+    box-shadow: inset 3px 0 0 rgba(var(--c-pink-rgb),0.75) !important;
+  }
+  .view-content .skill-check-col + .skill-check-col{
+    border-left-color: rgba(255,255,255,0.12);
+  }
+  .view-content .skill-check-label{ color: var(--text-main) !important; }
+  .view-content .skill-check-col.success .skill-check-label{ color: #6ee7b7 !important; }
+  .view-content .skill-check-col.failure .skill-check-label{ color: #fda4af !important; }
+  .view-content .skill-copy-btn{
+    background: rgba(255,255,255,0.10);
+    color: var(--text-main);
+    border-color: rgba(255,255,255,0.18);
+  }
+  .view-content .skill-copy-btn:hover{
+    background: rgba(255,255,255,0.18);
+    color: var(--c-teal);
+  }
 
 /* New widgets */
 .skill-check-widget{ border-color: var(--line); background: var(--bg-panel); }
@@ -1545,7 +1752,8 @@
   /* ダークモード：コピーボックス（編集モード） */
   .copy-box {
     background: rgba(var(--c-teal-rgb), 0.10);
-    border-color: rgba(var(--c-teal-rgb), 0.30);
+    border: 1px solid rgba(var(--c-teal-rgb), 0.28);
+    border-left: 3px solid rgba(var(--c-teal-rgb), 0.65);
     color: var(--text-main);
   }
   .copy-box::before { color: var(--c-teal); }
@@ -1563,34 +1771,46 @@
 
   /* ダークモード：コピーボックス（閲覧モード） */
   .view-content .copy-box {
-    background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.12), rgba(var(--c-teal-rgb),0.08));
-    border-color: rgba(var(--c-teal-rgb),0.30);
+    background: rgba(var(--c-teal-rgb),0.10);
+    border: 1px solid rgba(var(--c-teal-rgb),0.28);
+    border-left: 3px solid rgba(var(--c-teal-rgb),0.65);
     color: var(--text-main);
   }
-  .view-content .copy-box::before { color: var(--c-teal); }
+  .view-content .copy-box::after {
+    color: var(--c-teal);
+    opacity: 0.5;
+  }
   .view-content .copy-box:hover {
-    background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.18), rgba(var(--c-teal-rgb),0.12));
+    background: rgba(var(--c-teal-rgb),0.16);
+    border-color: rgba(var(--c-teal-rgb),0.45);
+  }
+  .view-content .copy-box:hover::after { opacity: 0.95; }
+  .view-content .copy-box:active {
+    background: rgba(var(--c-teal-rgb),0.22);
   }
 
-  /* ダークモード：技能判定ボックス */
+  /* ダークモード：技能判定ボックス（左ライン方式） */
   .skill-check-widget {
-    background: rgba(255,255,255,0.04);
-    border-color: rgba(255,255,255,0.12);
+    background: transparent;
+    border: none;
+    border-left: 3px solid rgba(255,255,255,0.22);
   }
   .skill-check-head {
-    background: rgba(255,255,255,0.06);
-    border-bottom-color: rgba(255,255,255,0.10);
+    background: transparent;
+    border-bottom: 2px solid rgba(255,255,255,0.18);
     color: var(--text-main);
   }
   .skill-name-input { color: var(--text-main) !important; }
   .skill-name-input::placeholder { color: var(--text-muted); }
   .skill-check-col.success {
-    background: rgba(var(--c-teal-rgb), 0.15);
+    background: transparent;
+    box-shadow: inset 3px 0 0 rgba(var(--c-teal-rgb),0.75);
   }
   .skill-check-col.failure {
-    background: rgba(var(--c-pink-rgb), 0.12);
+    background: transparent;
+    box-shadow: inset 3px 0 0 rgba(var(--c-pink-rgb),0.75);
   }
-  .skill-check-col + .skill-check-col { border-left-color: rgba(255,255,255,0.08); }
+  .skill-check-col + .skill-check-col { border-left-color: rgba(255,255,255,0.12); }
   .skill-textarea {
     color: var(--text-main);
   }
@@ -1602,33 +1822,74 @@
   }
   .skill-name-view { color: var(--text-main); }
   .skill-check-label { color: var(--text-main); }
-  .skill-check-col.success .skill-check-label { color: #5eead4; border-bottom-color: rgba(var(--c-teal-rgb),0.45); }
-  .skill-check-col.failure .skill-check-label { color: #fda4af; border-bottom-color: rgba(var(--c-pink-rgb),0.45); }
+  .skill-check-col.success .skill-check-label { color: #6ee7b7; }
+  .skill-check-col.failure .skill-check-label { color: #fda4af; }
   .skill-check-col-head { color: var(--text-main); }
-  .skill-check-col.success .skill-check-label { color: #6ee7b7; border-bottom-color: rgba(var(--c-teal-rgb),0.50); }
-  .skill-check-col.failure .skill-check-label { color: #fda4af; border-bottom-color: rgba(var(--c-pink-rgb),0.50); }
 
-  /* ダークモード：KPメモ（本文内フロート） */
+  /* ダークモード：KPメモ（付箋デザイン維持、色を暗背景向けに調整） */
   .kp-note {
-    background: rgba(var(--c-navy-rgb), 0.85);
-    border-color: rgba(var(--c-teal-rgb), 0.30);
+    background: linear-gradient(135deg, #78540a 0%, #614208 100%);
+    border: none;
+    border-top: 1px solid rgba(251,191,36,0.35);
+    border-left: 3px solid rgba(251,191,36,0.75);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    color: #fef3c7;
   }
   .kp-note-head {
-    background: rgba(0,0,0,0.25);
-    border-bottom-color: rgba(255,255,255,0.10);
+    background: transparent;
+    border-bottom: 1px dashed rgba(251,191,36,0.35);
+    color: #fef3c7;
   }
+  .kp-note-title{ color: #fef3c7; }
+  .kp-note-badge{ color: #fde68a; }
   .kp-note-text {
-    background: rgba(255,255,255,0.06);
-    border-color: rgba(255,255,255,0.12);
-    color: #e8edf3;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(251,191,36,0.25);
+    color: #fef3c7;
   }
+  .kp-note-text::placeholder { color: rgba(254,243,199,0.50); }
+  .kp-note-btn{
+    border-color: rgba(251,191,36,0.35);
+    background: rgba(0,0,0,0.20);
+    color: #fef3c7;
+  }
+  .kp-note-btn:hover{ background: rgba(0,0,0,0.32); }
+  .kp-note-drag{
+    border-color: rgba(251,191,36,0.35);
+    color: #fef3c7;
+  }
+  .kp-note-title-input{
+    border: 1px solid rgba(251,191,36,0.25);
+    background: rgba(0,0,0,0.25);
+    color: #fef3c7;
+  }
+  .kp-note-title-input:focus{
+    border-color: rgba(251,191,36,0.55);
+    background: rgba(0,0,0,0.40);
+    box-shadow: 0 0 0 2px rgba(251,191,36,0.15);
+  }
+  .kp-note-title-input::placeholder{ color: rgba(254,243,199,0.45); }
+  .kp-note-title-view{ color: #fef3c7; }
 
   /* ダークモード：KPメモ（閲覧モードインライン） */
   .kp-inline-view {
-    background: linear-gradient(135deg, rgba(var(--c-navy-rgb),0.85), rgba(var(--c-navy-rgb),0.75));
-    border-color: rgba(var(--c-teal-rgb),0.25);
-    border-left-color: rgba(var(--c-teal-rgb),0.70);
+    background: linear-gradient(135deg, #78540a 0%, #614208 100%);
+    border: none;
+    border-top: 1px solid rgba(251,191,36,0.35);
+    border-left: 3px solid rgba(251,191,36,0.75);
+    color: #fef3c7;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
   }
+  .kp-inline-view-head{ border-bottom: 1px dashed rgba(251,191,36,0.35); }
+  .kp-inline-view-title{ color: #fef3c7; }
+  .kp-inline-view-badge{ color: #fde68a; }
+  .kp-inline-view-copy{
+    border-color: rgba(251,191,36,0.35);
+    background: rgba(0,0,0,0.25);
+    color: #fef3c7;
+  }
+  .kp-inline-view-copy:hover{ background: rgba(0,0,0,0.40); }
+  .kp-inline-view-body{ color: #fef3c7; }
 
   /* ダークモード：KPパネルカード */
   .kp-card-body textarea {
@@ -1646,22 +1907,26 @@
 
   /* ダークモード：閲覧モードの章見出し */
   .view-chapter-title {
-    background: linear-gradient(135deg, rgba(var(--c-teal-rgb),0.12), rgba(var(--c-blue-rgb),0.10));
-    border-left-color: var(--c-teal);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.18);
+    color: rgba(243,244,246,0.92);
   }
 }
 
 
 
-/* --- KP Panel (Independent / Off-canvas) --- */
-/* 目的: 本文(Quill)と完全分離し、レイアウト(右の空白列)を持たない。開いた時だけ右から出る。 */
+/* --- KP Margin (本文右余白の注釈メモ領域) --- */
 .editor-split{
   flex: 1;
   position: relative;
   height: 100%;
   overflow: hidden;
+  display: flex;
+  flex-direction: row;
 }
 .editor-maincol{
+  flex: 1 1 auto;
   min-width: 0;
   height: 100%;
   overflow: hidden;
@@ -1669,40 +1934,59 @@
   flex-direction: column;
 }
 
-/* Backdrop */
+/* 右パネル旧UIは完全非表示（本体・背景とも） */
+.kp-panel,
 .kp-panel-backdrop{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.25);
-  z-index: 4900;
-  display: none;
+  display: none !important;
 }
 
-/* Panel */
-.kp-panel{
-  position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: min(92vw, 420px);
-  z-index: 5000;
-  background: var(--bg-panel);
-  border-left: 1px solid var(--line);
-  box-shadow: var(--shadow-float);
-  transform: translateX(110%);
-  transition: transform .18s ease;
+/* 本文スクロール親内のラッパ：本文 + 注釈領域 を横並びに */
+.editor-body-wrap{
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0;
+  width: 100%;
+  position: relative;
+  min-height: 100%;
+}
+.editor-body-wrap > .editor-body,
+.editor-body-wrap > .paper{
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kp-margin{
+  flex: 0 0 300px;
+  width: 300px;
+  position: relative;
+  padding-top: 0;
+  min-height: 1px;
+}
+body.kp-panel-open .kp-margin{ display: block; }
+body:not(.kp-panel-open) .kp-margin{ display: none; }
+
+/* 閲覧モードのview-mode-containerはpaddingが効くのでラッパを中身として置く */
+.view-mode-container > .editor-body-wrap{
+  max-width: none;
 }
 
-/* Open state */
-body.kp-panel-open .kp-panel{ transform: translateX(0); }
-body.kp-panel-open .kp-panel-backdrop{ display:block; }
+/* 注釈メモカード */
+.kp-margin .kp-card{
+  position: absolute;
+  left: 0;
+  right: 0;
+  transition: top .18s ease;
+}
+.kp-margin .kp-empty{
+  padding: 20px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}
 
-/* Desktop: 背景クリックで閉じない派ならこのままでもOK。閉じるのは×か上部ボタンで。 */
-@media (min-width: 981px){
-  .kp-panel-backdrop{ background: rgba(0,0,0,0.12); }
+/* モバイル時は注釈領域を隠す（画面幅足りないため） */
+@media (max-width: 980px){
+  .kp-margin{ display: none !important; }
 }
 
 /* Header / body */
@@ -1744,11 +2028,11 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   font-size: 18px;
 }
 .kp-panel-body{
-  padding: 12px;
-  overflow:auto;
-  display:flex;
-  flex-direction:column;
-  gap: 12px;
+  padding: 0 12px 12px;
+  overflow: auto;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .kp-tabs-wrap{
   display:flex;
@@ -1830,20 +2114,39 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 
 /* Cards */
 .kp-card{
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(var(--c-navy-rgb),0.22);
+  border-left: 3px solid rgba(var(--c-navy-rgb),0.55);
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e8edf4 0%, #dfe6ef 100%);
+  box-shadow: 0 1px 3px rgba(var(--c-navy-rgb),0.08);
   overflow:hidden;
+  transition: top .18s ease;
+  color: #1e293b;
+}
+/* タブUIは廃止（P2で常時全メモ表示） */
+.kp-tabs-wrap, .kp-tabs{ display: none !important; }
+
+/* 右パネルボディ：absolute配置の基準 */
+.kp-panel-body{
+  position: relative;
+  padding: 0 12px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.kp-panel-body .kp-empty{
+  padding: 20px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
 }
 .kp-card-head{
-  padding: 10px 10px;
+  padding: 8px 10px;
   display:flex;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
-  border-bottom: 1px solid rgba(var(--c-navy-rgb),0.10);
-  background: rgba(var(--c-teal-rgb),0.06);
+  border-bottom: 1px dashed rgba(var(--c-navy-rgb),0.20);
+  background: transparent;
 }
 .kp-card-head-row{
   display:flex;
@@ -1858,14 +2161,17 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 .kp-card-head input{
   border: 1px solid transparent;
   background: transparent;
-  padding: 6px 8px;
+  padding: 4px 6px;
   font-weight: 800;
+  font-size: 14px;
+  color: #1e293b;
   min-width: 0;
   flex: 1 1 auto;
 }
+.kp-card-head input::placeholder{ color: rgba(30,41,59,0.45); }
 .kp-card-head input:focus{
-  border-color: var(--line);
-  background: #fff;
+  border-color: rgba(var(--c-navy-rgb),0.30);
+  background: rgba(255,255,255,0.5);
 }
 .kp-card-tools{ display:flex; gap:6px; align-items:center; flex: 0 0 auto; flex-wrap: nowrap; }
 .kp-card-tools button{
@@ -1895,19 +2201,24 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   border-color: transparent;
 }
 
-.kp-card-body{ padding: 10px; }
+.kp-card-body{ padding: 8px 10px 10px; }
 .kp-card-body textarea{
   width: 100%;
-  min-height: 220px;
-  resize: vertical;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  padding: 10px 10px;
+  min-height: 40px;
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid rgba(var(--c-navy-rgb),0.18);
+  background: rgba(255,255,255,0.55);
+  padding: 8px 10px;
   font-family: var(--font-main);
-  font-size: var(--editor-fontsize, 16px);
+  font-size: calc(var(--editor-fontsize, 16px) * 0.95);
   line-height: 1.55;
   outline: none;
+  color: #1e293b;
 }
+.kp-card-body textarea::placeholder{ color: rgba(30,41,59,0.40); }
 .kp-card-body textarea:focus{
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
@@ -2018,33 +2329,72 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 
 /* --- Inline KP Notes (View Mode — injected at anchor) --- */
 .kp-inline-view{
-  margin: 14px 0; padding: 14px 16px;
-  background: linear-gradient(135deg, rgba(var(--c-navy-rgb),0.92), rgba(var(--c-navy-rgb),0.86));
-  border: 1px solid rgba(var(--c-navy-rgb),0.50);
-  border-left: 5px solid rgba(var(--c-teal-rgb),0.90);
-  border-radius: 10px; color: #e8eaee;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  margin: 18px 0; padding: 14px 16px 14px 18px;
+  background: linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%);
+  border: none;
+  border-top: 1px solid rgba(161,98,7,0.18);
+  border-left: 3px solid rgba(161,98,7,0.55);
+  border-radius: 2px 10px 10px 2px;
+  color: #3d2f0f;
+  box-shadow: 0 2px 6px rgba(120,88,20,0.12), 0 1px 2px rgba(120,88,20,0.08);
+  position: relative;
+}
+.kp-inline-view::before{
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 16px; height: 16px;
+  background: linear-gradient(135deg, rgba(0,0,0,0.08) 0%, transparent 50%);
+  border-radius: 0 0 10px 0;
+  pointer-events: none;
 }
 .kp-inline-view-head{
   display:flex; align-items:center; gap: 8px;
   margin-bottom: 8px; padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+  border-bottom: 1px dashed rgba(161,98,7,0.30);
 }
-.kp-inline-view-badge{ font-size: 18px; line-height: 1; }
-.kp-inline-view-title{ font-size: 18px; font-weight: 800; color: #fff; flex: 1; }
+.kp-inline-view-badge{ font-size: 15px; line-height: 1; }
+.kp-inline-view-title{
+  font-size: 14px; font-weight: 800;
+  color: #78350f; flex: 1;
+  letter-spacing: 0.02em;
+}
 .kp-inline-view-copy{
-  font-size: 12px; padding: 4px 10px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.22);
-  background: rgba(255,255,255,0.08); color: #fff;
+  font-size: 11px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid rgba(161,98,7,0.35);
+  background: rgba(255,255,255,0.55); color: #78350f;
   cursor: pointer; font-weight: 700;
+  opacity: 0; transition: opacity .18s, background .18s;
 }
-.kp-inline-view-copy:hover{ background: rgba(255,255,255,0.16); }
+.kp-inline-view:hover .kp-inline-view-copy{ opacity: 1; }
+.kp-inline-view-copy:hover{ background: rgba(255,255,255,0.85); }
 .kp-inline-view-body{
-  font-size: var(--editor-fontsize, 16px); line-height: 1.75;
-  white-space: pre-wrap; word-break: break-word; color: #dde0e5;
+  font-size: calc(var(--editor-fontsize, 16px) * 0.95); line-height: 1.75;
+  white-space: pre-wrap; word-break: break-word; color: #422f08;
 }
 .kp-hidden .kp-note{ display: none !important; }
 .kp-hidden .kp-anchor{ opacity: 0.3; }
+
+/* P2: 編集/閲覧モードとも、本文内のKPメモ表示は常に隠す（右パネル一本化） */
+.kp-inline-view{ display: none !important; }
+.view-content .kp-note{ display: none !important; }
+.kp-orphan-section{ display: none !important; }
+.ql-editor .kp-note{ display: none !important; }
+.scene-kp-section{ display: none !important; }
+
+/* KPパネルトグルボタン：開いているとき色変化 */
+body.kp-panel-open #btnKpPanelToggle{
+  background: rgba(var(--c-teal-rgb),0.18);
+  border-color: rgba(var(--c-teal-rgb),0.45);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* サイドバートグル：デスクトップのみ表示 */
+#btnSidebarToggle{ flex-shrink: 0; }
+@media (max-width: 980px){
+  #btnSidebarToggle{ display: none; }
+}
 
 .kp-vis-toggle{
   display: inline-flex; align-items: center; gap: 6px;
@@ -2082,7 +2432,8 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
   .editor-toolbar #btnManualSave { font-size: 12px; padding: 5px 8px; }
   .editor-toolbar .mode-toggle { font-size: 12px; padding: 7px 10px; }
   .chapter-header { flex-wrap: wrap; gap: 6px; padding: 10px; }
-  .chapter-title-input { font-size: 15px; }
+  .chapter-title-input { font-size: 18px; }
+  .scene-title-input { font-size: 17px !important; }
 }
 
 /* --- Explorer (PC) Tag --- */
@@ -2219,6 +2570,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 </div>
 <div class="hidden" id="editorView" style="display:flex; flex-direction:column; height:100%;">
 <header class="editor-toolbar" id="editorHeader">
+<button class="ghost icon-btn" id="btnSidebarToggle" type="button" title="メニュー開閉" aria-label="メニュー開閉" style="padding:6px 8px; font-size:18px; line-height:1;">☰</button>
 <div style="flex:1">
 <input id="scenarioTitle" placeholder="シナリオタイトル" style="font-size:18px; font-weight:700; border:none; background:transparent; padding:0;"/>
 </div>
@@ -2235,6 +2587,7 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 </svg>
 </button>
 <button class="ghost" id="btnAddChapter">＋ 章を追加</button>
+<button class="ghost" id="btnKpPanelToggle" type="button" title="KPメモパネル開閉">🔒 KPメモ</button>
 <button class="mode-toggle mode-to-play" id="btnToggleMode">閲覧モード（プレイ）</button>
 <button class="ghost mobile-only" id="btnMobileMenuOpenEditor" type="button" title="メニュー">メニュー</button>
 </div>
@@ -2242,12 +2595,18 @@ body.kp-panel-open .kp-panel-backdrop{ display:block; }
 <div class="editor-split">
   <div class="editor-maincol">
     <div id="editorBodyContainer" style="flex:1; overflow-y:auto; ">
-      <div class="editor-body" id="editorBody">
-        <div id="chapters"></div>
+      <div class="editor-body-wrap">
+        <div class="editor-body" id="editorBody">
+          <div id="chapters"></div>
+        </div>
+        <div class="kp-margin" id="kpMarginEdit" aria-label="KPメモ"></div>
       </div>
     </div>
     <div class="view-mode-container hidden" id="paperView">
-      <div class="paper" id="paperContent"></div>
+      <div class="editor-body-wrap">
+        <div class="paper" id="paperContent"></div>
+        <div class="kp-margin" id="kpMarginView" aria-label="KPメモ"></div>
+      </div>
     </div>
   </div>
   <div class="kp-panel-backdrop" id="kpPanelBackdrop"></div>
@@ -3250,10 +3609,15 @@ function ensureKpMemos(s){
   function openKpPanel(memoId){
     if (memoId) __kpUI.activeId = memoId;
     document.body.classList.add("kp-panel-open");
+    try { if (window.innerWidth > 980) localStorage.setItem("trpg_kppanel_open", "1"); } catch {}
     renderKpPanel();
+    // レイアウト反映後に位置同期
+    setTimeout(() => { try { scheduleKpPanelSync(); } catch {} }, 50);
+    setTimeout(() => { try { scheduleKpPanelSync(); } catch {} }, 200);
   }
   function closeKpPanel(){
     document.body.classList.remove("kp-panel-open");
+    try { localStorage.setItem("trpg_kppanel_open", "0"); } catch {}
   }
 
   function scrollToKpAnchor(memoId){
@@ -3281,120 +3645,166 @@ function ensureKpMemos(s){
   }
 
   function renderKpPanel(){
-  const ctxEl = document.getElementById("kpPanelContext");
-  const bodyEl = document.getElementById("kpPanelBody");
-  if (!ctxEl || !bodyEl) return;
+    const s = getCurrentScenario();
+    if (!s) return;
+    ensureKpMemos(s);
 
-  const s = getCurrentScenario();
-  if (!s){
-    ctxEl.textContent = "（シナリオ未選択）";
-    bodyEl.innerHTML = '<div class="kp-empty">シナリオを作成/選択してください。</div>';
-    return;
+    // 編集/閲覧どちらのマージンを使うかを判定
+    const editorScroll = document.getElementById("editorBodyContainer");
+    const paperScroll = document.getElementById("paperView");
+    const isEditMode = !!(editorScroll && editorScroll.offsetParent !== null);
+    const marginEl = document.getElementById(isEditMode ? "kpMarginEdit" : "kpMarginView");
+    if (!marginEl) return;
+
+    // 現在の章のメモをシーン順で取得
+    const chId = s.currentChapterId;
+    const ch = (s.chapters || []).find(c => c.id === chId);
+    const sceneIdsInOrder = ch ? (ch.scenes || []).map(sc => sc.id) : [];
+
+    const memosAll = (s.kpMemos || []).slice();
+    memosAll.sort((a, b) => {
+      const ai = sceneIdsInOrder.indexOf(a.sceneId);
+      const bi = sceneIdsInOrder.indexOf(b.sceneId);
+      const ax = ai < 0 ? 999 : ai;
+      const bx = bi < 0 ? 999 : bi;
+      if (ax !== bx) return ax - bx;
+      return (a.order || 0) - (b.order || 0) || (a.createdAt || 0) - (b.createdAt || 0);
+    });
+    const memos = memosAll.filter(n => sceneIdsInOrder.includes(n.sceneId));
+
+    marginEl.innerHTML = "";
+
+    if (memos.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "kp-empty";
+      empty.textContent = "メモはまだありません";
+      marginEl.appendChild(empty);
+      return;
+    }
+
+    memos.forEach(n => {
+      const card = document.createElement("div");
+      card.className = "kp-card";
+      card.dataset.kpId = n.id;
+
+      const head = document.createElement("div");
+      head.className = "kp-card-head";
+
+      const title = document.createElement("input");
+      title.type = "text";
+      title.placeholder = "タイトル";
+      title.value = n.title || "";
+      title.addEventListener("input", () => updateKpMemo(n.id, { title: title.value }));
+
+      const tools = document.createElement("div");
+      tools.className = "kp-card-tools";
+
+      const btnCopy = document.createElement("button");
+      btnCopy.type = "button";
+      btnCopy.textContent = "Copy";
+      btnCopy.addEventListener("click", async () => {
+        const ok = await copyTextToClipboard(String(n.body || "").replace(/\s+$/, ""));
+        showToast(ok ? "コピーしました！" : "コピーに失敗しました");
+      });
+
+      const btnDel = document.createElement("button");
+      btnDel.type = "button";
+      btnDel.textContent = "削除";
+      btnDel.title = "KPメモを削除";
+      btnDel.addEventListener("click", () => {
+        if (confirm("KPメモを削除しますか？（本文の🔒目印は残ります）")) deleteKpMemo(n.id);
+      });
+
+      tools.appendChild(btnCopy);
+      tools.appendChild(btnDel);
+
+      const row = document.createElement("div");
+      row.className = "kp-card-head-row";
+      row.appendChild(title);
+      row.appendChild(tools);
+      head.appendChild(row);
+
+      const body = document.createElement("div");
+      body.className = "kp-card-body";
+      const ta = document.createElement("textarea");
+      ta.placeholder = "KPメモ…";
+      ta.value = n.body || "";
+      ta.addEventListener("input", () => updateKpMemo(n.id, { body: ta.value }));
+      body.appendChild(ta);
+
+      card.appendChild(head);
+      card.appendChild(body);
+      marginEl.appendChild(card);
+    });
+
+    // 配置を実行
+    scheduleKpPanelSync();
   }
 
-  ensureKpMemos(s);
-
-  const sceneId = __kpCTX.sceneId || null;
-  const sceneTitle = sceneId ? (getSceneTitleById(s, sceneId) || "（無題）") : "";
-  ctxEl.textContent = sceneId ? `（${sceneTitle} のメモ）` : "（シーンを選択してください）";
-
-  // pick visible memos for current scene (if scene chosen), otherwise show recent memos
-  const memosAll = (s.kpMemos || []).slice();
-  memosAll.sort((a,b)=>(a.order||0)-(b.order||0) || (a.createdAt||0)-(b.createdAt||0));
-
-  const memos = sceneId ? memosAll.filter(n => n.sceneId === sceneId) : memosAll.slice(-20);
-  if (!__kpUI.activeId && memos.length) __kpUI.activeId = memos[0].id;
-
-  const active = __kpUI.activeId ? getKpMemoById(s, __kpUI.activeId) : null;
-
-  bodyEl.innerHTML = "";
-
-  // Tabs (horizontal)
-  const tabsWrap = document.createElement("div");
-  tabsWrap.className = "kp-tabs-wrap";
-
-  const tabs = document.createElement("div");
-  tabs.className = "kp-tabs";
-
-  memos.forEach((n, idx) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "kp-tab" + ((n.id === __kpUI.activeId) ? " active" : "");
-    btn.textContent = (n.title && String(n.title).trim()) ? String(n.title).trim() : `（無題${idx+1}）`;
-    btn.addEventListener("click", () => { __kpUI.activeId = n.id; renderKpPanel(); });
-    tabs.appendChild(btn);
-  });
-
-  tabsWrap.appendChild(tabs);
-  bodyEl.appendChild(tabsWrap);
-
-// Editor card
-  const card = document.createElement("div");
-  card.className = "kp-card";
-
-  if (!active){
-    card.innerHTML = '<div class="kp-empty">本文の🔒をクリックするか、＋でメモを追加してください。</div>';
-    bodyEl.appendChild(card);
-    return;
+  // ---- 本文マージン領域のメモカード縦位置を本文アンカーに合わせる ----
+  let __kpSyncRaf = 0;
+  function scheduleKpPanelSync(){
+    if (__kpSyncRaf) return;
+    __kpSyncRaf = requestAnimationFrame(() => {
+      __kpSyncRaf = 0;
+      syncKpPanelPositions();
+    });
   }
 
-  const head = document.createElement("div");
-  head.className = "kp-card-head";
+  function syncKpPanelPositions(){
+    if (!document.body.classList.contains("kp-panel-open")) return;
 
-  const title = document.createElement("input");
-  title.type = "text";
-  title.placeholder = "タイトル";
-  title.value = active.title || "";
-  title.addEventListener("input", () => updateKpMemo(active.id, { title: title.value }));
+    const editorScroll = document.getElementById("editorBodyContainer");
+    const paperScroll = document.getElementById("paperView");
+    const isEditMode = !!(editorScroll && editorScroll.offsetParent !== null);
+    const marginEl = document.getElementById(isEditMode ? "kpMarginEdit" : "kpMarginView");
+    const scrollRoot = isEditMode ? editorScroll : paperScroll;
+    if (!marginEl || !scrollRoot) return;
 
-  const tools = document.createElement("div");
-  tools.className = "kp-card-tools";
+    const cards = Array.from(marginEl.querySelectorAll(".kp-card[data-kp-id]"));
+    if (cards.length === 0) return;
 
-  const btnJump = document.createElement("button");
-  btnJump.type = "button";
-  btnJump.textContent = "本文へ";
-  btnJump.title = "本文内の目印へ移動";
-  btnJump.addEventListener("click", () => scrollToKpAnchor(active.id));
+    // marginEl自身のoffsetTopを参照基準にする（同じflexコンテナの子なら座標系が揃う）
+    const wrapEl = marginEl.parentElement;
+    if (!wrapEl) return;
+    const wrapRect = wrapEl.getBoundingClientRect();
 
-  const btnCopy = document.createElement("button");
-  btnCopy.type = "button";
-  btnCopy.textContent = "Copy";
-  btnCopy.addEventListener("click", async () => {
-    const ok = await copyTextToClipboard(String(active.body || "").replace(/\s+$/,""));
-    showToast(ok ? "コピーしました！" : "コピーに失敗しました");
-  });
+    const anchorData = [];
+    cards.forEach(card => {
+      const id = card.dataset.kpId;
+      const anchor = document.querySelector(`.kp-anchor[data-kp-id="${CSS.escape(id)}"]`);
+      if (anchor) {
+        const aRect = anchor.getBoundingClientRect();
+        // アンカーが見えていない（rect全部0）なら無視
+        if (aRect.width === 0 && aRect.height === 0 && aRect.top === 0) {
+          anchorData.push({ card, targetY: null });
+          return;
+        }
+        const relTop = aRect.top - wrapRect.top;
+        anchorData.push({ card, targetY: Math.max(0, relTop) });
+      } else {
+        anchorData.push({ card, targetY: null });
+      }
+    });
 
-  const btnDel = document.createElement("button");
-  btnDel.type = "button";
-  btnDel.textContent = "削除";
-  btnDel.title = "KPメモを削除";
-  btnDel.addEventListener("click", () => {
-    if (confirm("KPメモを削除しますか？（本文の🔒目印は残ります）")) deleteKpMemo(active.id);
-  });
+    const withAnchor = anchorData.filter(d => d.targetY !== null)
+      .sort((a, b) => a.targetY - b.targetY);
+    const withoutAnchor = anchorData.filter(d => d.targetY === null);
 
-  tools.appendChild(btnJump);
-  tools.appendChild(btnCopy);
-  tools.appendChild(btnDel);
+    let prevBottom = 0;
+    withAnchor.forEach(d => {
+      let y = d.targetY;
+      if (y < prevBottom + 8) y = prevBottom + 8;
+      d.card.style.top = y + "px";
+      prevBottom = y + d.card.offsetHeight;
+    });
 
-  const row = document.createElement("div");
-  row.className = "kp-card-head-row";
-  row.appendChild(title);
-  row.appendChild(tools);
-  head.appendChild(row);
-
-  const body = document.createElement("div");
-  body.className = "kp-card-body";
-
-  const ta = document.createElement("textarea");
-  ta.placeholder = "KPメモ…";
-  ta.value = active.body || "";
-  ta.addEventListener("input", () => updateKpMemo(active.id, { body: ta.value }));
-  body.appendChild(ta);
-
-  card.appendChild(head);
-  card.appendChild(body);
-  bodyEl.appendChild(card);
-}
+    let nextY = prevBottom + 16;
+    withoutAnchor.forEach(d => {
+      d.card.style.top = nextY + "px";
+      nextY += d.card.offsetHeight + 8;
+    });
+  }
 
 // --- KP Anchor (Quill embed) --- (Quill embed) ---
 
@@ -3689,51 +4099,54 @@ function createKpMemoAtSelection(q){
     q.insertEmbed(idx, 'kpanchor', { id: memoId, sceneId: sceneId || '' }, 'user');
     q.setSelection(idx + 1, 0, 'silent');
 
-    // Re-render the inline KP section for this scene
-    if (sceneId) {
-      const kpContainer = document.querySelector(`.scene-kp-section[data-scene-id="${CSS.escape(sceneId)}"]`);
-      if (kpContainer) {
-        renderSceneKpSection(kpContainer, sceneId, __kpCTX.chapterId, s);
-        // Scroll to and focus the new card
-        setTimeout(() => {
-          const card = document.getElementById(`kp-edit-${memoId}`);
-          if (card) {
-            card.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            const ta = card.querySelector("textarea");
-            if (ta) ta.focus();
-          }
-        }, 100);
+    // P2: マージンにメモが追加されるので再描画→該当カードへフォーカス
+    try {
+      if (sceneId) setActiveKpContext(String(sceneId), __kpCTX.chapterId);
+      // マージンが閉じていれば開く
+      if (!document.body.classList.contains("kp-panel-open")) {
+        openKpPanel(memoId);
+      } else {
+        renderKpPanel();
+        setTimeout(() => { try { scheduleKpPanelSync(); } catch {} }, 30);
       }
-    }
+      // 配置後に該当カードへフォーカス
+      setTimeout(() => {
+        const card = document.querySelector(`.kp-margin .kp-card[data-kp-id="${CSS.escape(memoId)}"]`);
+        if (card) {
+          const input = card.querySelector("input[type='text']");
+          if (input) input.focus();
+          else { const ta = card.querySelector("textarea"); if (ta) ta.focus(); }
+        }
+      }, 160);
+    } catch {}
 
     showToast("KPメモを作成しました");
   }
 
-  // Global click handlers: anchor click scrolls to inline KP card
+  // Global click handlers: anchor click routes to KP memo in margin
   try{
     document.addEventListener("click", (e) => {
       const t = e.target;
       if (!(t instanceof HTMLElement)) return;
       const a = t.closest(".kp-anchor");
       if (!a) return;
-            const id = a.dataset.kpId || a.getAttribute("data-kp-id");
+      const id = a.dataset.kpId || a.getAttribute("data-kp-id");
       const sceneId = a.dataset.sceneId || a.getAttribute("data-scene-id");
       if (!id) return;
       if (sceneId) setActiveKpContext(String(sceneId), null);
-
-      // In edit mode: scroll to the inline KP card below the scene
-      const card = document.getElementById(`kp-edit-${id}`);
-      if (card) {
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-        card.style.outline = "3px solid rgba(59,151,151,0.6)";
-        card.style.outlineOffset = "2px";
-        setTimeout(() => { card.style.outline = ""; card.style.outlineOffset = ""; }, 1200);
-        const ta = card.querySelector("textarea");
-        if (ta) ta.focus();
-      } else {
-        // Fallback: try opening KP panel (legacy)
-        try { openKpPanel(String(id)); } catch {}
-      }
+      try {
+        if (!document.body.classList.contains("kp-panel-open")) {
+          openKpPanel(String(id));
+        }
+        setTimeout(() => {
+          const card = document.querySelector(`.kp-margin .kp-card[data-kp-id="${CSS.escape(String(id))}"]`);
+          if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+            const ta = card.querySelector("textarea");
+            if (ta) ta.focus();
+          }
+        }, 120);
+      } catch {}
       e.preventDefault();
       e.stopPropagation();
     }, true);
@@ -3767,8 +4180,18 @@ function createKpMemoAtSelection(q){
           s.kpMemos.push(memo);
           s.updatedAt = Date.now();
           saveApp();
-          const kpContainer = document.querySelector(`.scene-kp-section[data-scene-id="${CSS.escape(sid)}"]`);
-          if (kpContainer) renderSceneKpSection(kpContainer, sid, __kpCTX.chapterId, s);
+          // 右パネル再描画＆該当メモをアクティブ化
+          __kpUI.activeId = memo.id;
+          renderKpPanel();
+          setTimeout(() => {
+            const panelBody = document.getElementById("kpPanelBody");
+            const card = panelBody && panelBody.querySelector(".kp-card");
+            if (card) {
+              const input = card.querySelector("input[type='text']");
+              if (input) input.focus();
+              else { const ta = card.querySelector("textarea"); if (ta) ta.focus(); }
+            }
+          }, 60);
           showToast("KPメモを追加しました");
         } else {
           showToast("先にシーンを選択してください");
@@ -3780,7 +4203,63 @@ function createKpMemoAtSelection(q){
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeKpPanel();
     });
-  }catch{}
+  }catch(e){ console.error("[KP btnAdd/Close setup] failed:", e); }
+
+  // ヘッダーのKPパネルトグル（イベント委譲で確実に登録）
+  try {
+    const kpToggleHandler = (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const btn = t.closest("#btnKpPanelToggle");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (document.body.classList.contains("kp-panel-open")) {
+        closeKpPanel();
+      } else {
+        openKpPanel();
+      }
+    };
+    // captureのみで登録（bubble phaseの登録はしない）
+    document.addEventListener("click", kpToggleHandler, true);
+  } catch(e) { console.error("[KP Header Toggle setup] failed:", e); }
+
+  // マージン方式なので本文と同じスクロール親＝自動同期
+  // リサイズ時のみメモ位置を再計算
+  try {
+    window.addEventListener("resize", () => { try { scheduleKpPanelSync(); } catch {} });
+  } catch(e) { console.error("[KP Resize Sync] failed:", e); }
+
+  // 左サイドバー収納トグル（イベント委譲）
+  try {
+    // 初期状態を復元
+    try {
+      if (localStorage.getItem("trpg_sidebar_collapsed") === "1") {
+        const appEl = document.querySelector(".app");
+        appEl && appEl.classList.add("sidebar-collapsed");
+      }
+    } catch {}
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const btn = t.closest("#btnSidebarToggle");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const appEl = document.querySelector(".app");
+      if (!appEl) return;
+      const collapsed = appEl.classList.toggle("sidebar-collapsed");
+      try { localStorage.setItem("trpg_sidebar_collapsed", collapsed ? "1" : "0"); } catch {}
+    }, true);
+  } catch(e) { console.error("[Sidebar Toggle setup] failed:", e); }
+
+  // KPパネル開閉状態の永続化復元（デスクトップのみ）
+  try {
+    if (localStorage.getItem("trpg_kppanel_open") === "1" && window.innerWidth > 980) {
+      document.body.classList.add("kp-panel-open");
+    }
+  } catch {}
 
   function normalizeAppData() {
     if (!app || typeof app !== "object") app = structuredClone(DEFAULT_APP);
@@ -5837,7 +6316,7 @@ function createQuill(container, content, isView, onContentChange) {
     // Widgets (技能判定 / KPメモ) の操作・保存・コピー
     setupSkillAndKpWidgets(q, onContentChange, isView);
 
-    // --- Robust KPメモボタン結線（Quill toolbar handlerが壊れても確実に動く）---
+    // --- KPメモボタン：本文選択位置に🔒アンカー挿入＋マージンにメモ追加 ---
     if (!isView) {
       try {
         const tbMod = q.getModule('toolbar');
@@ -5845,13 +6324,10 @@ function createQuill(container, content, isView, onContentChange) {
 
         // 1) Quill公式ハンドラ
         try { tbMod && tbMod.addHandler && tbMod.addHandler('kpnote', () => {
-          const range = q.getSelection(true) || { index: q.getLength(), length: 0 };
-          q.insertEmbed(range.index, 'kpnote', { title: "", text: "" }, 'user');
-          q.insertText(range.index + 1, '\n', 'silent');
-          q.setSelection(range.index + 2, 0, 'silent');
+          try { createKpMemoAtSelection(q); } catch(e) { console.error(e); }
         }); } catch {}
 
-        // 2) 念のためDOMクリックでも拾う（他のコードに潰されても動く）
+        // 2) 念のためDOMクリックでも拾う
         if (tbEl && !tbEl.__kpnoteBound) {
           tbEl.__kpnoteBound = true;
           tbEl.addEventListener('click', (ev) => {
@@ -5861,10 +6337,7 @@ function createQuill(container, content, isView, onContentChange) {
             if (!btn) return;
             ev.preventDefault();
             ev.stopPropagation();
-            const range = q.getSelection(true) || { index: q.getLength(), length: 0 };
-            q.insertEmbed(range.index, 'kpnote', { title: "", text: "" }, 'user');
-            q.insertText(range.index + 1, '\n', 'silent');
-            q.setSelection(range.index + 2, 0, 'silent');
+            try { createKpMemoAtSelection(q); } catch(e) { console.error(e); }
           }, true);
         }
       } catch {}
@@ -6189,32 +6662,9 @@ toolbar.addHandler('skillcheck', () => {
   focusWidgetAt(insertAt, '.skill-check-widget', '.skill-name-input');
 });
 
-// 🔒 KPメモ（本文内にフローティングブロックを挿入）
+// 🔒 KPメモ（本文に🔒アンカーを挿入＋マージンにメモカード追加）
 toolbar.addHandler('kpnote', () => {
-  const range = q.getSelection(true) || { index: q.getLength(), length: 0 };
-  const insertAt = Math.max(0, range.index);
-  q.insertEmbed(insertAt, 'kpnote', { title: "", text: "" }, 'user');
-  q.insertText(insertAt + 1, '\n', 'silent');
-  q.setSelection(insertAt + 2, 0, 'silent');
-
-  // Focus the widget title input
-  try {
-    setTimeout(() => {
-      const notes = q.root.querySelectorAll('.kp-note');
-      // Find the one near the insertAt index
-      for (const note of notes) {
-        const blot = Quill.find(note);
-        if (blot) {
-          const at = q.getIndex(blot);
-          if (Math.abs(at - insertAt) <= 2) {
-            const ti = note.querySelector('.kp-note-title-input');
-            if (ti) ti.focus();
-            break;
-          }
-        }
-      }
-    }, 50);
-  } catch {}
+  try { createKpMemoAtSelection(q); } catch(e) { console.error(e); }
 });
 
 // Tooltips (hover to explain)
@@ -7113,6 +7563,28 @@ dom.scenarioTitle.value = s.title;
       renderEditMode(s);
     }
     try { updateCharCount(); } catch {}
+    // モード切替後にマージンメモを再描画＆位置同期（レイアウト確定を待つ）
+    try {
+      if (document.body.classList.contains("kp-panel-open")) {
+        setTimeout(() => { try { renderKpPanel(); } catch {} }, 30);
+        setTimeout(() => { try { scheduleKpPanelSync(); } catch {} }, 150);
+        setTimeout(() => { try { scheduleKpPanelSync(); } catch {} }, 400);
+        setTimeout(() => { try { scheduleKpPanelSync(); } catch {} }, 800);
+        setTimeout(() => { try { scheduleKpPanelSync(); } catch {} }, 1500);
+        // 画像ロード完了後に再同期
+        try {
+          const container = isView ? document.getElementById("paperContent") : document.getElementById("chapters");
+          if (container) {
+            container.querySelectorAll("img").forEach(img => {
+              if (!img.complete) {
+                img.addEventListener("load", () => { try { scheduleKpPanelSync(); } catch {} }, { once: true });
+                img.addEventListener("error", () => { try { scheduleKpPanelSync(); } catch {} }, { once: true });
+              }
+            });
+          }
+        } catch {}
+      }
+    } catch {}
   }
 
   // 編集モード描画
@@ -7609,6 +8081,13 @@ dom.scenarioTitle.value = s.title;
       applyKpNoteShiftsInView(contentDiv);
       // Remove edit-only controls if they exist
       contentDiv.querySelectorAll('.copybox-remove').forEach(el => el.remove());
+      // 閲覧モード：コピーボックスにツールチップ付与
+      contentDiv.querySelectorAll('.copy-box').forEach(el => {
+        if (!el.hasAttribute('title')) el.setAttribute('title', 'クリックしてコピー');
+      });
+      contentDiv.querySelectorAll('.ccfolia-line').forEach(el => {
+        if (!el.hasAttribute('title')) el.setAttribute('title', 'クリックしてコピー');
+      });
 
       chDiv.appendChild(scDiv);
     });
