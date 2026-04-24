@@ -228,7 +228,8 @@
     
     .chapter-block { margin-bottom: 40px; background: transparent; border: none; border-radius: 0; overflow: visible; box-shadow: none; }
     .chapter-header { padding: 0 0 12px 0; background: transparent; border: none; border-bottom: 2px solid rgba(var(--c-navy-rgb),0.55); display:flex; align-items:center; gap:12px; justify-content:space-between; border-radius: 0; margin-bottom: 20px; }
-    .chapter-title-input { font-size: 24px; font-weight: 800; border: 1px solid transparent; background: transparent; padding: 6px 8px; border-radius: 8px; letter-spacing: 0.03em; }
+    .chapter-header input.chapter-title-input,
+    input.chapter-title-input { font-size: 24px !important; font-weight: 800 !important; border: 1px solid transparent; background: transparent; padding: 6px 8px; border-radius: 8px; letter-spacing: 0.03em; height: auto !important; }
     .chapter-title-input:focus { background: #fff; border-color: rgba(var(--c-blue-rgb),0.25); box-shadow: 0 0 0 3px rgba(var(--c-blue-rgb),0.08); }
 
     /* Scene container background so gaps between scenes are visible */
@@ -254,7 +255,8 @@
     .scene-block:last-child { margin-bottom: 0; }
     .scene-header { padding: 14px 20px; background: linear-gradient(90deg, rgba(var(--c-teal-rgb),0.06), rgba(var(--c-blue-rgb),0.02) 60%, transparent); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.08); position: relative; border-radius: 4px 4px 0 0; }
     .scene-drag-handle { color: #c5cbd3; cursor: grab; }
-    .scene-title-input { font-size: 20px !important; font-weight: 800; border: none; background: transparent; flex: 1; padding-right: 36px; letter-spacing: 0.02em; }
+    .scene-header input.scene-title-input,
+    input.scene-title-input { font-size: 18px !important; font-weight: 800 !important; border: none; background: transparent; flex: 1; padding-right: 36px; padding-top: 4px; padding-bottom: 4px; letter-spacing: 0.02em; line-height: 1.35 !important; height: auto !important; }
 /* Scene header controls layout */
     .scene-meta-row { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
     .scene-delete-btn {
@@ -547,7 +549,7 @@
     /* === ココフォリアシーンマーカー（左縦線・CSS疑似要素でラベル表示） === */
     .ccfolia-line{
       border-left: 3px solid #d1d5db;
-      padding: 1px 12px 1px 12px;
+      padding: 2px 12px 2px 14px;
       margin: 0;
       position: relative;
       background: transparent;
@@ -556,11 +558,11 @@
     .ccfolia-line::before{
       content: "🎬 " attr(data-ccfolia-name);
       display: block;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      color: #b0b5bd;
-      margin-bottom: 1px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: #6b7280;
+      margin-bottom: 4px;
       user-select: none;
       pointer-events: none;
       line-height: 1.4;
@@ -570,21 +572,23 @@
     /* 閲覧モード */
     .view-content .ccfolia-line{
       border-left: 2px solid rgba(var(--c-navy-rgb),0.18);
-      padding: 1px 12px 1px 14px;
+      padding: 2px 12px 2px 14px;
       background: transparent;
       cursor: pointer;
       transition: background .18s, border-color .18s;
     }
-    .view-content .ccfolia-line:hover{
+    .view-content .ccfolia-line.ccfolia-group-hover{
       background: rgba(var(--c-blue-rgb),0.06);
       border-left-color: rgba(var(--c-blue-rgb),0.55);
     }
     .view-content .ccfolia-line::before{
       content: "🎬 " attr(data-ccfolia-name);
-      font-size: 9px;
-      font-weight: 600;
-      color: rgba(26,26,46,0.48);
-      letter-spacing: 0.04em;
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+      color: rgba(26,26,46,0.65);
+      letter-spacing: 0.02em;
+      margin-bottom: 4px;
     }
     .view-content .ccfolia-line + .ccfolia-line::before{ display: none; }
 
@@ -651,7 +655,7 @@
       border-left-color: var(--accent);
     }
     .view-scene-title {
-      font-size: 22px !important; font-weight: 800; color: #1a1a2e;
+      font-size: 20px !important; font-weight: 800; color: #1a1a2e;
       display: flex; align-items: center; gap: 12px;
       margin: 0 0 18px 0;
       padding: 0 0 12px 0;
@@ -662,7 +666,7 @@
       line-height: 1.35;
     }
     .view-scene-title > span:first-child{
-      font-size: 22px !important;
+      font-size: 20px !important;
       font-weight: 800;
     }
     .view-scene-title::before { content: ""; display: none; }
@@ -1346,20 +1350,19 @@
 .skill-check-widget{
   margin: 12px 0;
   width: 100%;
-  border: none;
-  border-left: 3px solid rgba(var(--c-navy-rgb),0.28);
-  border-radius: 0;
+  border: 1px solid rgba(var(--c-navy-rgb),0.22);
+  border-radius: 8px;
   overflow: hidden;
   background: transparent;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(var(--c-navy-rgb),0.04);
 }
 .skill-check-head{
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  background: transparent;
-  border-bottom: 2px solid rgba(var(--c-navy-rgb),0.22);
+  padding: 8px 12px;
+  background: rgba(var(--c-navy-rgb),0.04);
+  border-bottom: 1px solid rgba(var(--c-navy-rgb),0.14);
   font-weight: 800;
   font-size: 18px;
 }
@@ -1505,21 +1508,20 @@
   .skill-check-col + .skill-check-col{ border-left: none; border-top: 1px solid var(--line); }
 }
 
-/* 閲覧モード：技能判定（編集モードと統一、左ラインで識別） */
+/* 閲覧モード：技能判定（枠線で囲う） */
 .view-content .skill-check-widget{
   width: 100%;
   margin: 14px 0;
-  border: none;
-  border-left: 3px solid rgba(var(--c-navy-rgb),0.28);
-  border-radius: 0;
+  border: 1px solid rgba(var(--c-navy-rgb),0.22);
+  border-radius: 8px;
   background: transparent;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(var(--c-navy-rgb),0.04);
   opacity: 1;
 }
 .view-content .skill-check-head{
-  padding: 6px 12px;
-  background: transparent;
-  border-bottom: 2px solid rgba(var(--c-navy-rgb),0.22);
+  padding: 8px 12px;
+  background: rgba(var(--c-navy-rgb),0.04);
+  border-bottom: 1px solid rgba(var(--c-navy-rgb),0.14);
   font-size: 18px;
   font-weight: 800;
   color: #1a1a2e;
@@ -1685,15 +1687,14 @@
   .view-content { color: var(--text-main); }
   .view-content a { color: var(--primary); }
 
-  /* ダークモード：閲覧モード技能判定（左ライン方式） */
+  /* ダークモード：閲覧モード技能判定（枠線方式） */
   .view-content .skill-check-widget{
     background: transparent;
-    border: none;
-    border-left: 3px solid rgba(255,255,255,0.22);
+    border: 1px solid rgba(255,255,255,0.18);
   }
   .view-content .skill-check-head{
-    background: transparent;
-    border-bottom: 2px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
     color: var(--text-main);
   }
   .view-content .skill-check-head .skill-name,
@@ -1789,15 +1790,14 @@
     background: rgba(var(--c-teal-rgb),0.22);
   }
 
-  /* ダークモード：技能判定ボックス（左ライン方式） */
+  /* ダークモード：技能判定ボックス（枠線方式） */
   .skill-check-widget {
     background: transparent;
-    border: none;
-    border-left: 3px solid rgba(255,255,255,0.22);
+    border: 1px solid rgba(255,255,255,0.18);
   }
   .skill-check-head {
-    background: transparent;
-    border-bottom: 2px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
     color: var(--text-main);
   }
   .skill-name-input { color: var(--text-main) !important; }
@@ -3772,10 +3772,17 @@ function ensureKpMemos(s){
     const anchorData = [];
     cards.forEach(card => {
       const id = card.dataset.kpId;
-      const anchor = document.querySelector(`.kp-anchor[data-kp-id="${CSS.escape(id)}"]`);
+      const anchorList = Array.from(document.querySelectorAll(`.kp-anchor[data-kp-id="${CSS.escape(id)}"]`));
+      // 複数見つかった場合は「可視な（サイズがある）」ものを優先
+      let anchor = null;
+      for (const a of anchorList) {
+        const r = a.getBoundingClientRect();
+        if (r.width > 0 || r.height > 0) { anchor = a; break; }
+      }
+      if (!anchor && anchorList.length) anchor = anchorList[0];
+
       if (anchor) {
         const aRect = anchor.getBoundingClientRect();
-        // アンカーが見えていない（rect全部0）なら無視
         if (aRect.width === 0 && aRect.height === 0 && aRect.top === 0) {
           anchorData.push({ card, targetY: null });
           return;
@@ -4230,6 +4237,49 @@ function createKpMemoAtSelection(q){
   try {
     window.addEventListener("resize", () => { try { scheduleKpPanelSync(); } catch {} });
   } catch(e) { console.error("[KP Resize Sync] failed:", e); }
+
+  // 閲覧モード ccfoliaグループ（連続する同名の .ccfolia-line）のホバー連動
+  try {
+    const getGroup = (line) => {
+      const name = line.getAttribute("data-ccfolia-name") || "";
+      const group = [line];
+      // 前方向
+      let p = line.previousElementSibling;
+      while (p && p.classList && p.classList.contains("ccfolia-line") && (p.getAttribute("data-ccfolia-name") || "") === name) {
+        group.unshift(p);
+        p = p.previousElementSibling;
+      }
+      // 後方向
+      let n = line.nextElementSibling;
+      while (n && n.classList && n.classList.contains("ccfolia-line") && (n.getAttribute("data-ccfolia-name") || "") === name) {
+        group.push(n);
+        n = n.nextElementSibling;
+      }
+      return group;
+    };
+    document.addEventListener("mouseover", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const line = t.closest(".view-content .ccfolia-line");
+      if (!line) return;
+      getGroup(line).forEach(el => el.classList.add("ccfolia-group-hover"));
+    });
+    document.addEventListener("mouseout", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const line = t.closest(".view-content .ccfolia-line");
+      if (!line) return;
+      // 関連先もccfoliaグループなら残す
+      const related = e.relatedTarget;
+      if (related instanceof HTMLElement && related.closest(".view-content .ccfolia-line")) {
+        const relatedLine = related.closest(".view-content .ccfolia-line");
+        const curName = line.getAttribute("data-ccfolia-name") || "";
+        const relName = relatedLine.getAttribute("data-ccfolia-name") || "";
+        if (curName === relName) return; // 同じグループ内移動なら何もしない
+      }
+      getGroup(line).forEach(el => el.classList.remove("ccfolia-group-hover"));
+    });
+  } catch(e) { console.error("[ccfolia group hover] failed:", e); }
 
   // 左サイドバー収納トグル（イベント委譲）
   try {
@@ -8094,6 +8144,19 @@ dom.scenarioTitle.value = s.title;
 
     body.appendChild(chDiv);
     dom.paperContent.appendChild(body);
+
+    // 閲覧モード描画完了後、KPマージンメモを確実に再描画＆位置同期
+    try {
+      if (document.body.classList.contains("kp-panel-open")) {
+        // 複数回遅延でアンカー可視化を待つ
+        [10, 50, 150, 300, 600, 1000].forEach(ms => {
+          setTimeout(() => {
+            try { renderKpPanel(); } catch {}
+            try { scheduleKpPanelSync(); } catch {}
+          }, ms);
+        });
+      }
+    } catch {}
 }
 
   // ★ 探索者タグ関連
