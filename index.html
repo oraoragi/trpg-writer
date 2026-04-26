@@ -242,15 +242,26 @@
     .scene-block {
       background: var(--bg-panel);
       border: 1px solid rgba(var(--c-navy-rgb),0.10);
-      border-left: 4px solid rgba(var(--c-navy-rgb),0.18);
       border-radius: 8px;
       overflow: visible;
       box-shadow: 0 1px 3px rgba(var(--c-navy-rgb),0.04);
       margin: 20px 0;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      transition: opacity 0.18s, border-color 0.18s, box-shadow 0.18s;
+      position: relative;
     }
     .scene-block:hover { border-color: rgba(var(--c-navy-rgb),0.18); box-shadow: 0 2px 8px rgba(var(--c-navy-rgb),0.06); }
-    .scene-block.scene-active { border-color: rgba(var(--c-blue-rgb),0.35); border-left-color: var(--accent); box-shadow: 0 2px 10px rgba(var(--c-blue-rgb),0.10); }
+    /* アクティブシーンが存在する章では、それ以外のシーンを薄くする */
+    .chapter-block:has(.scene-block.scene-active) .scene-block:not(.scene-active){
+      opacity: 0.45;
+    }
+    .chapter-block:has(.scene-block.scene-active) .scene-block:not(.scene-active):hover{
+      opacity: 0.85;
+    }
+    .scene-block.scene-active {
+      border-color: rgba(var(--c-navy-rgb),0.30);
+      box-shadow: 0 4px 14px rgba(var(--c-navy-rgb),0.10);
+      opacity: 1;
+    }
     .scene-block:first-child { margin-top: 0; }
     .scene-block:last-child { margin-bottom: 0; }
     .scene-header { padding: 14px 20px; background: linear-gradient(90deg, rgba(var(--c-teal-rgb),0.06), rgba(var(--c-blue-rgb),0.02) 60%, transparent); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(var(--c-navy-rgb),0.08); position: relative; border-radius: 4px 4px 0 0; }
@@ -506,7 +517,6 @@
     .copy-box{
       background: rgba(var(--c-blue-rgb),0.055);
       border: 1px solid rgba(var(--c-blue-rgb),0.20);
-      border-left: 3px solid rgba(var(--c-blue-rgb),0.55);
       padding: 10px 52px 10px 14px;
       position: relative;
       /* KPメモ（float:right）と同じ段落に来たとき、背景や枠が下に潜り込まないようBFC化 */
@@ -704,7 +714,6 @@
     .view-content .copy-box{
       background: rgba(var(--c-blue-rgb),0.055);
       border: 1px solid rgba(var(--c-blue-rgb),0.20);
-      border-left: 3px solid rgba(var(--c-blue-rgb),0.55);
       color: inherit;
       padding: 10px 14px;
       border-radius: 8px;
@@ -1644,9 +1653,15 @@
   .editor-toolbar { background: var(--bg-panel); border-bottom-color: var(--line); }
   .chapter-block { background: transparent; border: none; }
   .chapter-header { background: transparent; border-bottom-color: rgba(255,255,255,0.30); }
-  .scene-block { background: var(--bg-panel); border: 1px solid rgba(255,255,255,0.10); border-left: 4px solid rgba(255,255,255,0.18); }
+  .scene-block { background: var(--bg-panel); border: 1px solid rgba(255,255,255,0.10); }
   .scene-block:hover { border-color: rgba(255,255,255,0.18); }
-  .scene-block.scene-active { border-color: rgba(var(--c-teal-rgb),0.45); border-left-color: var(--c-teal); }
+  .chapter-block:has(.scene-block.scene-active) .scene-block:not(.scene-active){ opacity: 0.40; }
+  .chapter-block:has(.scene-block.scene-active) .scene-block:not(.scene-active):hover{ opacity: 0.80; }
+  .scene-block.scene-active {
+    border-color: rgba(255,255,255,0.30);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.40);
+    opacity: 1;
+  }
   .scene-header { background: linear-gradient(90deg, rgba(var(--c-teal-rgb),0.10), transparent 60%); border-bottom-color: rgba(255,255,255,0.08); }
   #editorBodyContainer { background: #0f172a; }
   .chapter-block > div:not(.chapter-header) { background: transparent; }
@@ -1754,7 +1769,6 @@
   .copy-box {
     background: rgba(var(--c-teal-rgb), 0.10);
     border: 1px solid rgba(var(--c-teal-rgb), 0.28);
-    border-left: 3px solid rgba(var(--c-teal-rgb), 0.65);
     color: var(--text-main);
   }
   .copy-box::before { color: var(--c-teal); }
@@ -1774,7 +1788,6 @@
   .view-content .copy-box {
     background: rgba(var(--c-teal-rgb),0.10);
     border: 1px solid rgba(var(--c-teal-rgb),0.28);
-    border-left: 3px solid rgba(var(--c-teal-rgb),0.65);
     color: var(--text-main);
   }
   .view-content .copy-box::after {
@@ -2114,14 +2127,14 @@ body:not(.kp-panel-open) .kp-margin{ display: none; }
 
 /* Cards */
 .kp-card{
-  border: 1px solid rgba(var(--c-navy-rgb),0.22);
-  border-left: 3px solid rgba(var(--c-navy-rgb),0.55);
+  border: 1px solid rgba(var(--c-navy-rgb),0.45);
+  border-left: 3px solid var(--c-navy);
   border-radius: 8px;
-  background: linear-gradient(135deg, #e8edf4 0%, #dfe6ef 100%);
-  box-shadow: 0 1px 3px rgba(var(--c-navy-rgb),0.08);
+  background: linear-gradient(135deg, var(--c-navy) 0%, #1e2a47 100%);
+  box-shadow: 0 2px 6px rgba(var(--c-navy-rgb),0.20);
   overflow:hidden;
   transition: top .18s ease;
-  color: #1e293b;
+  color: #e8edf4;
 }
 /* タブUIは廃止（P2で常時全メモ表示） */
 .kp-tabs-wrap, .kp-tabs{ display: none !important; }
@@ -2145,7 +2158,7 @@ body:not(.kp-panel-open) .kp-margin{ display: none; }
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
-  border-bottom: 1px dashed rgba(var(--c-navy-rgb),0.20);
+  border-bottom: 1px dashed rgba(255,255,255,0.18);
   background: transparent;
 }
 .kp-card-head-row{
@@ -2164,14 +2177,14 @@ body:not(.kp-panel-open) .kp-margin{ display: none; }
   padding: 4px 6px;
   font-weight: 800;
   font-size: 14px;
-  color: #1e293b;
+  color: #f1f5f9;
   min-width: 0;
   flex: 1 1 auto;
 }
-.kp-card-head input::placeholder{ color: rgba(30,41,59,0.45); }
+.kp-card-head input::placeholder{ color: rgba(241,245,249,0.45); }
 .kp-card-head input:focus{
-  border-color: rgba(var(--c-navy-rgb),0.30);
-  background: rgba(255,255,255,0.5);
+  border-color: rgba(255,255,255,0.30);
+  background: rgba(255,255,255,0.06);
 }
 .kp-card-tools{ display:flex; gap:6px; align-items:center; flex: 0 0 auto; flex-wrap: nowrap; }
 .kp-card-tools button{
@@ -2186,19 +2199,26 @@ body:not(.kp-panel-open) .kp-margin{ display: none; }
 .kp-card-tools{
   padding: 4px;
   border-radius: 999px;
-  border: 1px solid rgba(var(--c-navy-rgb),0.14);
-  background: rgba(255,255,255,0.74);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.25);
+  box-shadow: none;
+}
+.kp-card-tools button{
+  color: #f1f5f9;
+  background: transparent;
+  border: 1px solid transparent;
 }
 .kp-card-tools button.ghost{
   border-color: transparent;
   background: transparent;
+  color: #f1f5f9;
 }
 .kp-card-tools button.ghost:hover{
-  background: rgba(var(--c-blue-rgb),0.08);
+  background: rgba(255,255,255,0.10);
 }
 .kp-card-tools button.danger{
   border-color: transparent;
+  color: #fda4af;
 }
 
 .kp-card-body{ padding: 8px 10px 10px; }
@@ -2209,16 +2229,21 @@ body:not(.kp-panel-open) .kp-margin{ display: none; }
   resize: none;
   overflow: hidden;
   border-radius: 6px;
-  border: 1px solid rgba(var(--c-navy-rgb),0.18);
-  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.20);
   padding: 8px 10px;
   font-family: var(--font-main);
   font-size: calc(var(--editor-fontsize, 16px) * 0.95);
   line-height: 1.55;
   outline: none;
-  color: #1e293b;
+  color: #f1f5f9;
 }
-.kp-card-body textarea::placeholder{ color: rgba(30,41,59,0.40); }
+.kp-card-body textarea::placeholder{ color: rgba(241,245,249,0.45); }
+.kp-card-body textarea:focus{
+  border-color: rgba(255,255,255,0.40);
+  background: rgba(0,0,0,0.30);
+  box-shadow: 0 0 0 2px rgba(var(--c-teal-rgb),0.20);
+}
 .kp-card-body textarea:focus{
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
