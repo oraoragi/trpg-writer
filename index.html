@@ -210,6 +210,36 @@
     .card-meta { font-size: 12px; color: var(--text-muted); }
     .card-actions { display: flex; gap: 8px; margin-top: auto; }
 
+    /* Home: list toolbar + detail view */
+    .home-listbar { display:flex; justify-content:flex-end; margin-top: 14px; }
+    .card-grid.detail { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .card-grid.detail .card-cover, .card-grid.detail .card-cover-placeholder { height: 200px; }
+    .card-detail-meta { display:flex; flex-wrap:wrap; gap:6px; }
+    .card-chip {
+      display:inline-flex; align-items:center; gap:4px; font-size:12px;
+      padding:3px 9px; border-radius:999px; background: var(--accent-soft);
+      color: var(--text-main); border:1px solid rgba(var(--c-teal-rgb),0.25);
+    }
+    .card-chip.author { background: var(--primary-soft); border-color: rgba(var(--c-blue-rgb),0.25); }
+    .card-synopsis {
+      font-size: 13px; line-height: 1.6; color: var(--text-main);
+      white-space: pre-wrap; word-break: break-word;
+      background: rgba(var(--c-navy-rgb),0.03); border:1px solid var(--line);
+      border-radius: 8px; padding: 10px 12px; max-height: 160px; overflow:auto;
+    }
+    .card-synopsis.empty { color: var(--text-muted); font-style: italic; }
+
+    /* Scenario info editor */
+    .scenario-info-body { display:flex; flex-direction:column; gap:8px; }
+    .sinfo-label { display:flex; flex-direction:column; gap:3px; font-size:12px; font-weight:600; color: var(--text-muted); }
+    .sinfo-input {
+      font-size:13px; padding:6px 9px; border:1px solid var(--line); border-radius:7px;
+      background: var(--bg-panel); color: var(--text-main); width:100%; box-sizing:border-box;
+      font-family: var(--font-main);
+    }
+    .sinfo-input:focus { outline:none; border-color: rgba(var(--c-blue-rgb),0.5); box-shadow: 0 0 0 3px rgba(var(--c-blue-rgb),0.10); }
+    .sinfo-textarea { resize: vertical; min-height: 70px; line-height:1.5; }
+
     /* Cover setting in editor */
     .cover-setting { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 0; }
     .cover-preview { width: 80px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
@@ -2589,6 +2619,23 @@ body.kp-panel-open #btnKpPanelToggle{
   </div>
   <input type="file" id="coverFileInput" accept="image/*" class="hidden"/>
 </div>
+<div id="scenarioInfo" class="pc-settings" style="display:none;">
+  <div class="pc-settings-title" id="scenarioInfoToggle" style="cursor:pointer; user-select:none;">📋 シナリオ情報 <span id="scenarioInfoArrow" style="font-size:11px;">▼</span></div>
+  <div id="scenarioInfoBody" class="scenario-info-body">
+    <label class="sinfo-label">作者名
+      <input type="text" id="sinfoAuthor" class="sinfo-input" placeholder="例: 山田太郎" autocomplete="off"/>
+    </label>
+    <label class="sinfo-label">プレイ時間
+      <input type="text" id="sinfoPlayTime" class="sinfo-input" placeholder="例: 2〜3時間 / 1セッション" autocomplete="off"/>
+    </label>
+    <label class="sinfo-label">舞台
+      <input type="text" id="sinfoSetting" class="sinfo-input" placeholder="例: 現代日本 / 1920年代アメリカ" autocomplete="off"/>
+    </label>
+    <label class="sinfo-label">あらすじ
+      <textarea id="sinfoSynopsis" class="sinfo-input sinfo-textarea" rows="4" placeholder="プレイ希望者向けの紹介文・あらすじ"></textarea>
+    </label>
+  </div>
+</div>
 <div class="nav-list" id="scenarioListNavEditor"></div>
 <div id="pcSettings" class="pc-settings" style="display:none;">
   <div class="pc-settings-title" id="pcSettingsToggle" style="cursor:pointer; user-select:none;">👤 探索者設定 <span id="pcSettingsArrow" style="font-size:11px;">▼</span></div>
@@ -2640,6 +2687,9 @@ body.kp-panel-open #btnKpPanelToggle{
 </button>
 </div>
 <input id="fileImport" type="file" accept="application/json" class="hidden"/>
+<div class="home-listbar">
+  <button class="ghost" id="btnHomeViewToggle" type="button" title="詳細表示と簡易表示を切り替え">詳細表示</button>
+</div>
 <div class="card-grid" id="homeCardList"></div>
 </div>
 <div class="hidden" id="editorView" style="display:flex; flex-direction:column; height:100%;">
@@ -3592,6 +3642,10 @@ function ensureKpMemos(s){
     if (!Array.isArray(s.chapters)) s.chapters = [];
     if (!s.mode) s.mode = "edit";
     if (!s.updatedAt) s.updatedAt = Date.now();
+    if (typeof s.author !== "string") s.author = "";
+    if (typeof s.playTime !== "string") s.playTime = "";
+    if (typeof s.setting !== "string") s.setting = "";
+    if (typeof s.synopsis !== "string") s.synopsis = "";
 
     s.chapters.forEach(ch => {
       if (!Array.isArray(ch.scenes)) ch.scenes = [];
@@ -3609,6 +3663,8 @@ function ensureKpMemos(s){
 
   // UI state
   const __kpUI = { activeId: null };
+  let homeDetailMode = false;
+  try { homeDetailMode = localStorage.getItem("trpg_home_detail") === "1"; } catch {}
   // KPメモ context: which scene is currently active (selected / focused)
   const __kpCTX = { sceneId: null, chapterId: null };
 
@@ -5042,6 +5098,7 @@ function createKpMemoAtSelection(q){
       try {
         m.quill.deleteText(m.index, m.length);
         if (rep) m.quill.insertText(m.index, rep);
+        if (typeof m.quill.__flushSave === "function") m.quill.__flushSave();
       } catch {}
       try { saveApp(); } catch {}
       const prev = current;
@@ -5066,6 +5123,7 @@ function createKpMemoAtSelection(q){
           local.push(map[pos]);
           from = pos + needle.length;
         }
+        if (!local.length) continue;
         for (let i = local.length - 1; i >= 0; i--){
           try {
             quill.deleteText(local[i], query.length);
@@ -5073,6 +5131,8 @@ function createKpMemoAtSelection(q){
             count++;
           } catch {}
         }
+        // この時点でこのエディタの本文を確実にメモリへ反映（共有デバウンスで取りこぼさないため）
+        try { if (typeof quill.__flushSave === "function") quill.__flushSave(); } catch {}
       }
       try { saveApp(); } catch {}
       search(true);
@@ -7382,6 +7442,10 @@ try {
 
 
       q.on('text-change', () => { scheduleScenarioSave(onContentChange, getHtmlForSave); });
+      // 即時に本文をメモリへ反映するための同期フラッシュ（プログラム的な一括編集用）
+      try {
+        q.__flushSave = () => { try { if (onContentChange) onContentChange(normalizeBodyForStorage(getHtmlForSave())); } catch {} };
+      } catch {}
       q.root.addEventListener('gallery-changed', () => { scheduleScenarioSave(onContentChange, getHtmlForSave); });
 // If a gallery becomes empty, remove the whole embed so "empty image boxes" do not remain.
 q.root.addEventListener('gallery-empty', (e) => {
@@ -7821,6 +7885,14 @@ const ok = await copyTextToClipboard(text);
     dom.homeCardList.innerHTML = "";
     renderSidebarList();
 
+    // 表示モード反映
+    const detail = !!homeDetailMode;
+    dom.homeCardList.classList.toggle("detail", detail);
+    try {
+      const tb = document.getElementById("btnHomeViewToggle");
+      if (tb) tb.textContent = detail ? "簡易表示" : "詳細表示";
+    } catch {}
+
     if (app.scenarios.length === 0) {
       dom.homeCardList.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px; color:#9ca3af;">シナリオがありません。<br>左下のボタンから新規作成してください。</div>`;
       return;
@@ -7832,17 +7904,38 @@ const ok = await copyTextToClipboard(text);
       const coverHtml = s.coverImage
         ? `<img class="card-cover" src="${s.coverImage}" alt="表紙"/>`
         : `<div class="card-cover-placeholder">📖</div>`;
-      card.innerHTML = `
-        ${coverHtml}
-        <div class="card-body">
-          <div class="card-title">${s.title}</div>
-          <div class="card-meta">最終更新: ${new Date(s.updatedAt).toLocaleString()}</div>
-          <div class="card-actions">
-            <button class="ghost" onclick="openScenario('${s.id}')">編集/閲覧</button>
-            <button class="ghost danger" onclick="deleteScenario('${s.id}')">削除</button>
-          </div>
-        </div>
-      `;
+
+      const actionsHtml = `
+        <div class="card-actions">
+          <button class="ghost" onclick="openScenario('${s.id}')">編集/閲覧</button>
+          <button class="ghost danger" onclick="deleteScenario('${s.id}')">削除</button>
+        </div>`;
+      const metaHtml = `<div class="card-meta">最終更新: ${new Date(s.updatedAt).toLocaleString()}</div>`;
+
+      if (detail) {
+        const chips = [];
+        if (s.author) chips.push(`<span class="card-chip author">作者: ${escapeHtml(s.author)}</span>`);
+        if (s.playTime) chips.push(`<span class="card-chip">⏱ ${escapeHtml(s.playTime)}</span>`);
+        if (s.setting) chips.push(`<span class="card-chip">舞台: ${escapeHtml(s.setting)}</span>`);
+        const synopsis = s.synopsis
+          ? `<div class="card-synopsis">${escapeHtml(s.synopsis)}</div>`
+          : `<div class="card-synopsis empty">あらすじ未記入</div>`;
+        card.innerHTML = `
+          ${coverHtml}
+          <div class="card-body">
+            <div class="card-title">${escapeHtml(s.title || "（無題）")}</div>
+            ${chips.length ? `<div class="card-detail-meta">${chips.join("")}</div>` : ""}
+            ${synopsis}
+          </div>`;
+      } else {
+        card.innerHTML = `
+          ${coverHtml}
+          <div class="card-body">
+            <div class="card-title">${escapeHtml(s.title || "（無題）")}</div>
+            ${metaHtml}
+            ${actionsHtml}
+          </div>`;
+      }
       dom.homeCardList.appendChild(card);
     });
   }
@@ -7907,6 +8000,12 @@ dom.scenarioTitle.value = s.title;
         if (!s.explorers) s.explorers = [];
         renderPcList(s);
       }
+    } catch {}
+
+    // シナリオ情報の更新
+    try {
+      const infoEl = document.getElementById("scenarioInfo");
+      if (infoEl) { infoEl.style.display = ""; renderScenarioInfo(s); }
     } catch {}
 
     dom.nav.innerHTML = ""; // 目次リセット
@@ -8500,6 +8599,24 @@ dom.scenarioTitle.value = s.title;
 }
 
   // ★ 探索者タグ関連
+  function renderScenarioInfo(s) {
+    if (!s) return;
+    const bind = (id, key) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = s[key] || "";
+      el.oninput = (e) => {
+        s[key] = e.target.value;
+        s.updatedAt = Date.now();
+        __hasDirtyChanges = true;
+      };
+    };
+    bind("sinfoAuthor", "author");
+    bind("sinfoPlayTime", "playTime");
+    bind("sinfoSetting", "setting");
+    bind("sinfoSynopsis", "synopsis");
+  }
+
   function renderPcList(s) {
     const pcListEl = document.getElementById("pcList");
     if (!pcListEl) return;
@@ -8726,6 +8843,32 @@ dom.scenarioTitle.value = s.title;
         const isHidden = pcBody.style.display === "none";
         pcBody.style.display = isHidden ? "" : "none";
         if (pcArrow) pcArrow.textContent = isHidden ? "▼" : "▶";
+      };
+    }
+  } catch {}
+
+  // ★ シナリオ情報の折りたたみ
+  try {
+    const siToggle = document.getElementById("scenarioInfoToggle");
+    const siBody = document.getElementById("scenarioInfoBody");
+    const siArrow = document.getElementById("scenarioInfoArrow");
+    if (siToggle && siBody) {
+      siToggle.onclick = () => {
+        const isHidden = siBody.style.display === "none";
+        siBody.style.display = isHidden ? "" : "none";
+        if (siArrow) siArrow.textContent = isHidden ? "▼" : "▶";
+      };
+    }
+  } catch {}
+
+  // ★ ホーム表示モード切り替え（簡易 / 詳細）
+  try {
+    const tb = document.getElementById("btnHomeViewToggle");
+    if (tb) {
+      tb.onclick = () => {
+        homeDetailMode = !homeDetailMode;
+        try { localStorage.setItem("trpg_home_detail", homeDetailMode ? "1" : "0"); } catch {}
+        renderHome();
       };
     }
   } catch {}
