@@ -244,7 +244,7 @@
       padding:3px 9px; border-radius:999px; background: var(--accent-soft);
       color: var(--text-main); border:1px solid rgba(var(--c-teal-rgb),0.25);
     }
-    .card-chip.author { background: var(--primary-soft); border-color: rgba(var(--c-blue-rgb),0.25); }
+    .card-chip.author { background: var(--c-navy); border-color: var(--c-navy); color: #fff; font-weight:700; }
     .card-chip.lost-danger { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.40); color: #c01818; font-weight:700; }
     .card-synopsis {
       font-size: 13px; line-height: 1.6; color: var(--text-main);
@@ -8137,12 +8137,12 @@ const ok = await copyTextToClipboard(text);
     const covers = await Promise.all(items.map(s => loadImageMaybe(s.coverImage)));
 
     // レイアウト定数（詳細表示と同じ縦型カードをグリッド配置）
-    const cols = items.length >= 2 ? 2 : 1;
-    const cardW = 380;
+    const cols = Math.max(1, Math.min(4, items.length));
+    const cardW = 320;
     const gap = 20;
     const pad = 28;
     const headerH = 58;
-    const coverH = 200;
+    const coverH = 180;
     const cardPad = 16;
     const radius = 14;
     const W = pad * 2 + cols * cardW + (cols - 1) * gap;
@@ -8187,18 +8187,18 @@ const ok = await copyTextToClipboard(text);
       return { titleLines, chipRows, synLines, cardH: coverH + bodyH };
     });
 
-    // マソンリー配置（高さの異なるカードを最短列に積む）
-    const startY = pad + headerH;
-    const colH = new Array(cols).fill(startY);
-    const place = layouts.map((L) => {
-      let col = 0;
-      for (let i = 1; i < cols; i++) if (colH[i] < colH[col]) col = i;
-      const x = pad + col * (cardW + gap);
-      const y = colH[col];
-      colH[col] += L.cardH + gap;
-      return { x, y };
-    });
-    const totalH = Math.max(...colH) - gap + pad;
+    // 行グリッド配置（同じ行のカードは高さを揃える）
+    const place = new Array(layouts.length);
+    let gy = pad + headerH;
+    for (let i = 0; i < layouts.length; i += cols) {
+      const row = layouts.slice(i, i + cols);
+      const rowH = Math.max(...row.map(L => L.cardH));
+      row.forEach((L, ci) => {
+        place[i + ci] = { x: pad + ci * (cardW + gap), y: gy, rowH };
+      });
+      gy += rowH + gap;
+    }
+    const totalH = gy - gap + pad;
 
     const scale = Math.min(window.devicePixelRatio || 1, 2) * 1.5;
     const canvas = document.createElement("canvas");
@@ -8222,14 +8222,15 @@ const ok = await copyTextToClipboard(text);
 
     for (let i = 0; i < layouts.length; i++) {
       const L = layouts[i];
-      const { x, y } = place[i];
+      const { x, y, rowH } = place[i];
+      const cardH = rowH; // 行内で高さを揃える
 
       // カード（角丸・白背景）
       ctx.save();
-      roundRectPath(ctx, x, y, cardW, L.cardH, radius);
+      roundRectPath(ctx, x, y, cardW, cardH, radius);
       ctx.clip();
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x, y, cardW, L.cardH);
+      ctx.fillRect(x, y, cardW, cardH);
 
       // カバー（上部・object-fit: cover）
       const img = covers[i];
@@ -8250,7 +8251,7 @@ const ok = await copyTextToClipboard(text);
       // 枠線
       ctx.strokeStyle = "rgba(26,26,46,0.12)";
       ctx.lineWidth = 1;
-      roundRectPath(ctx, x + 0.5, y + 0.5, cardW - 1, L.cardH - 1, radius);
+      roundRectPath(ctx, x + 0.5, y + 0.5, cardW - 1, cardH - 1, radius);
       ctx.stroke();
 
       // 本文
@@ -8266,11 +8267,11 @@ const ok = await copyTextToClipboard(text);
         let chx = bx;
         for (const ch of r) {
           if (ch.kind === "danger") ctx.fillStyle = "#fbe3e3";
-          else if (ch.kind === "author") ctx.fillStyle = "#eaf0fb";
+          else if (ch.kind === "author") ctx.fillStyle = "#132440";
           else ctx.fillStyle = "#e6f4f1";
           roundRectPath(ctx, chx, by, ch.w, chipH, chipH / 2);
           ctx.fill();
-          ctx.fillStyle = ch.kind === "danger" ? "#c01818" : "#374151";
+          ctx.fillStyle = ch.kind === "danger" ? "#c01818" : (ch.kind === "author" ? "#ffffff" : "#374151");
           ctx.fillText(ch.t, chx + 9, by + 5);
           chx += ch.w + chipGap;
         }
