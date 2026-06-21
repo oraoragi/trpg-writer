@@ -243,6 +243,7 @@
       display:inline-flex; align-items:center; gap:4px; font-size:12px;
       padding:3px 9px; border-radius:999px; background: var(--accent-soft);
       color: var(--text-main); border:1px solid rgba(var(--c-teal-rgb),0.25);
+      max-width:100%; box-sizing:border-box; word-break:break-word;
     }
     .card-chip.author { background: #2b4a73; border-color: #2b4a73; color: #fff; font-weight:700; }
     .card-chip.lost-danger { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.40); color: #c01818; font-weight:700; }
@@ -8138,7 +8139,7 @@ const ok = await copyTextToClipboard(text);
 
     // レイアウト定数（詳細表示と同じ縦型カードをグリッド配置）
     const cols = Math.max(1, Math.min(4, items.length));
-    const cardW = 320;
+    const cardW = 380;
     const gap = 20;
     const pad = 28;
     const headerH = 0;
@@ -8153,6 +8154,7 @@ const ok = await copyTextToClipboard(text);
     const chipFont = "600 12px 'Hiragino Sans','Yu Gothic',sans-serif";
     const synFont = "13px 'Hiragino Sans','Yu Gothic',sans-serif";
     const titleLH = 26, synLH = 21, chipH = 23, chipGap = 6, lineGap = 6;
+    const chipLineH = 15, chipPadY = 4;
 
     const meas = document.createElement("canvas").getContext("2d");
 
@@ -8171,7 +8173,12 @@ const ok = await copyTextToClipboard(text);
       meas.font = titleFont;
       const titleLines = wrapTextLines(meas, s.title || "（無題）", innerW, 2);
       meas.font = chipFont;
-      const chips = buildChips(s).map(ch => ({ ...ch, w: Math.ceil(meas.measureText(ch.t).width) + 18 }));
+      const chips = buildChips(s).map(ch => {
+        const single = Math.ceil(meas.measureText(ch.t).width) + 18;
+        if (single <= innerW) return { kind: ch.kind, lines: [ch.t], w: single, h: chipLineH + chipPadY * 2 };
+        const lines = wrapTextLines(meas, ch.t, innerW - 18, 3);
+        return { kind: ch.kind, lines, w: innerW, h: lines.length * chipLineH + chipPadY * 2 };
+      });
       const chipRows = [];
       let row = [], rowW = 0;
       for (const ch of chips) {
@@ -8183,7 +8190,7 @@ const ok = await copyTextToClipboard(text);
       const synEmpty = !s.synopsis;
       const synLines = wrapTextLines(meas, synEmpty ? "あらすじ未記入" : s.synopsis, innerW - synPad * 2, 6);
       const titleH = titleLines.length * titleLH;
-      const chipsH = chipRows.length ? chipRows.length * (chipH + lineGap) : 0;
+      const chipsH = chipRows.reduce((a, r) => a + Math.max(...r.map(c => c.h)) + lineGap, 0);
       const synBoxH = synLines.length * synLH + synPad * 2;
       const synH = 8 + synBoxH;
       const bodyH = cardPad + titleH + 6 + chipsH + synH + cardPad;
@@ -8265,18 +8272,20 @@ const ok = await copyTextToClipboard(text);
 
       ctx.font = chipFont;
       for (const r of L.chipRows) {
+        const rowMaxH = Math.max(...r.map(c => c.h));
         let chx = bx;
         for (const ch of r) {
           if (ch.kind === "danger") ctx.fillStyle = "#fbe3e3";
           else if (ch.kind === "author") ctx.fillStyle = "#2b4a73";
           else ctx.fillStyle = "#e6f4f1";
-          roundRectPath(ctx, chx, by, ch.w, chipH, chipH / 2);
+          roundRectPath(ctx, chx, by, ch.w, ch.h, Math.min(ch.h / 2, 11));
           ctx.fill();
           ctx.fillStyle = ch.kind === "danger" ? "#c01818" : (ch.kind === "author" ? "#ffffff" : "#374151");
-          ctx.fillText(ch.t, chx + 9, by + 5);
+          let cty = by + chipPadY;
+          for (const ln of ch.lines) { ctx.fillText(ln, chx + 9, cty); cty += chipLineH; }
           chx += ch.w + chipGap;
         }
-        by += chipH + lineGap;
+        by += rowMaxH + lineGap;
       }
 
       // あらすじ（枠付きボックス）
