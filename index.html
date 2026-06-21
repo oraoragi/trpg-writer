@@ -79,12 +79,22 @@
     body { margin: 0; font-family: var(--font-main); background: var(--bg-app); color: var(--text-main); height: 100vh; overflow: hidden; font-size: 16px; }
 
     /* --- Layout Structure --- */
-    .app { display: grid; grid-template-columns: 280px 1fr; height: 100vh; transition: grid-template-columns .22s ease; }
+    .app { display: grid; grid-template-columns: var(--sidebar-w, 280px) 1fr; height: 100vh; transition: grid-template-columns .22s ease; }
+    .app.no-sidebar-transition { transition: none; }
     .app.sidebar-collapsed { grid-template-columns: 0 1fr; }
     .app.sidebar-collapsed .sidebar { transform: translateX(-100%); visibility: hidden; }
     
     /* Sidebar */
-    .sidebar { background: var(--bg-panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 20; overflow: hidden; transition: transform .22s ease; }
+    .sidebar { background: var(--bg-panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; z-index: 20; overflow: hidden; transition: transform .22s ease; position: relative; }
+    .sidebar-resize {
+      position: absolute; top: 0; right: 0; width: 7px; height: 100%;
+      cursor: col-resize; z-index: 40; user-select: none;
+    }
+    .sidebar-resize::before {
+      content: ""; position: absolute; top: 0; right: 0; width: 2px; height: 100%;
+      background: transparent; transition: background .12s;
+    }
+    .sidebar-resize:hover::before, .sidebar-resize.dragging::before { background: var(--primary); }
     .sidebar-header { padding: 16px; border-bottom: 1px solid var(--line); }
     .brand { font-weight: 800; font-size: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-main); }
     .brand::before{
@@ -254,7 +264,11 @@
     .sinfo-input:focus { outline:none; border-color: rgba(var(--c-blue-rgb),0.5); box-shadow: 0 0 0 3px rgba(var(--c-blue-rgb),0.10); }
     .sinfo-textarea { resize: vertical; min-height: 70px; line-height:1.5; }
     .sinfo-check { display:flex; align-items:flex-start; gap:7px; font-size:12px; color: var(--text-muted); cursor:pointer; line-height:1.4; }
-    .sinfo-check input { margin-top:1px; flex:0 0 auto; cursor:pointer; }
+    .sinfo-check span { flex:1; min-width:0; }
+    .sinfo-check input[type="checkbox"] {
+      width:16px; height:16px; flex:0 0 auto; margin:1px 0 0 0; padding:0;
+      border-radius:4px; appearance:auto; -webkit-appearance:auto; cursor:pointer;
+    }
 
     /* Cover setting in editor */
     .cover-setting { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 0; }
@@ -1106,6 +1120,7 @@
       .mobile-only { display: inline-flex !important; }
 
       .app { grid-template-columns: 1fr; }
+      .sidebar-resize { display: none; }
 
       /* Sidebar becomes an off-canvas drawer (default hidden) */
       .sidebar {
@@ -2646,6 +2661,7 @@ body.kp-panel-open #btnKpPanelToggle{
 <div id="fatalOverlay" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);color:#fff;display:none;overflow:auto;padding:20px;font-family:monospace;white-space:pre-wrap;"></div>
 <div class="app">
 <aside class="sidebar">
+<div class="sidebar-resize" id="sidebarResize" title="ドラッグでメニュー幅を変更"></div>
 <div class="sidebar-header">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
     <div class="brand">TRPG Writer</div>
@@ -9237,6 +9253,57 @@ dom.scenarioTitle.value = s.title;
     }
     const ex = document.getElementById("btnHomeExportImage");
     if (ex) ex.onclick = () => { try { exportListAsImage(); } catch (err) { try { showToast("画像の生成に失敗しました"); } catch {} } };
+  } catch {}
+
+  // 左メニュー幅のドラッグ変更
+  try {
+    const handle = document.getElementById("sidebarResize");
+    const appEl = document.querySelector(".app");
+    const root = document.documentElement;
+    const MIN = 200, MAX = 600;
+    let saved = null;
+    try { saved = parseInt(localStorage.getItem("trpg_sidebar_w"), 10); } catch {}
+    if (saved && saved >= MIN && saved <= MAX) root.style.setProperty("--sidebar-w", saved + "px");
+
+    if (handle && appEl) {
+      let dragging = false;
+      const onMove = (e) => {
+        if (!dragging) return;
+        const x = (e.touches ? e.touches[0].clientX : e.clientX);
+        const w = Math.max(MIN, Math.min(MAX, Math.round(x)));
+        root.style.setProperty("--sidebar-w", w + "px");
+      };
+      const onUp = () => {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove("dragging");
+        appEl.classList.remove("no-sidebar-transition");
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        try {
+          const wv = parseInt(getComputedStyle(root).getPropertyValue("--sidebar-w"), 10);
+          if (wv) localStorage.setItem("trpg_sidebar_w", String(wv));
+        } catch {}
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+      handle.addEventListener("pointerdown", (e) => {
+        if (typeof isMobileLayout === "function" && isMobileLayout()) return;
+        e.preventDefault();
+        dragging = true;
+        handle.classList.add("dragging");
+        appEl.classList.add("no-sidebar-transition");
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+      });
+      // ダブルクリックで既定幅に戻す
+      handle.addEventListener("dblclick", () => {
+        root.style.setProperty("--sidebar-w", "280px");
+        try { localStorage.setItem("trpg_sidebar_w", "280"); } catch {}
+      });
+    }
   } catch {}
 
 
