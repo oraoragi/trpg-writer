@@ -245,6 +245,7 @@
       color: var(--text-main); border:1px solid rgba(var(--c-teal-rgb),0.25);
     }
     .card-chip.author { background: var(--primary-soft); border-color: rgba(var(--c-blue-rgb),0.25); }
+    .card-chip.lost-danger { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.40); color: #c01818; font-weight:700; }
     .card-synopsis {
       font-size: 13px; line-height: 1.6; color: var(--text-main);
       white-space: pre-wrap; word-break: break-word;
@@ -8024,7 +8025,7 @@ const ok = await copyTextToClipboard(text);
         if (s.author) chips.push(`<span class="card-chip author">作者: ${escapeHtml(s.author)}</span>`);
         if (s.players) chips.push(`<span class="card-chip">人数: ${escapeHtml(s.players)}</span>`);
         if (s.playTime) chips.push(`<span class="card-chip">⏱ ${escapeHtml(s.playTime)}</span>`);
-        if (s.lost) chips.push(`<span class="card-chip">ロスト: ${escapeHtml(s.lost)}</span>`);
+        if (s.lost) chips.push(`<span class="card-chip${/あり/.test(s.lost) ? ' lost-danger' : ''}">ロスト: ${escapeHtml(s.lost)}</span>`);
         if (s.setting) chips.push(`<span class="card-chip">舞台: ${escapeHtml(s.setting)}</span>`);
         const synopsis = s.synopsis
           ? `<div class="card-synopsis">${escapeHtml(s.synopsis)}</div>`
@@ -8135,58 +8136,69 @@ const ok = await copyTextToClipboard(text);
 
     const covers = await Promise.all(items.map(s => loadImageMaybe(s.coverImage)));
 
-    // レイアウト定数（CSSピクセル基準）
-    const W = 860;
+    // レイアウト定数（詳細表示と同じ縦型カードをグリッド配置）
+    const cols = items.length >= 2 ? 2 : 1;
+    const cardW = 380;
+    const gap = 20;
     const pad = 28;
-    const headerH = 64;
-    const cardGap = 18;
-    const cardPad = 18;
-    const coverW = 168, coverH = 112;
-    const titleFont = "700 21px 'Hiragino Sans','Yu Gothic',sans-serif";
-    const chipFont = "600 13px 'Hiragino Sans','Yu Gothic',sans-serif";
-    const synFont = "14px 'Hiragino Sans','Yu Gothic',sans-serif";
-    const synLH = 22, titleLH = 28, chipH = 24, chipGap = 7, lineGap = 7;
-    const txtX = pad + cardPad + coverW + 16;
-    const txtW = W - pad - cardPad - txtX;
+    const headerH = 58;
+    const coverH = 200;
+    const cardPad = 16;
+    const radius = 14;
+    const W = pad * 2 + cols * cardW + (cols - 1) * gap;
+    const innerW = cardW - cardPad * 2;
 
-    // 計測用キャンバス
+    const titleFont = "700 19px 'Hiragino Sans','Yu Gothic',sans-serif";
+    const chipFont = "600 12px 'Hiragino Sans','Yu Gothic',sans-serif";
+    const synFont = "13px 'Hiragino Sans','Yu Gothic',sans-serif";
+    const titleLH = 26, synLH = 21, chipH = 23, chipGap = 6, lineGap = 6;
+
     const meas = document.createElement("canvas").getContext("2d");
 
     const buildChips = (s) => {
       const c = [];
-      if (s.author) c.push({ t: "作者: " + s.author, author: true });
+      if (s.author) c.push({ t: "作者: " + s.author, kind: "author" });
       if (s.players) c.push({ t: "人数: " + s.players });
       if (s.playTime) c.push({ t: "⏱ " + s.playTime });
-      if (s.lost) c.push({ t: "ロスト: " + s.lost });
+      if (s.lost) c.push({ t: "ロスト: " + s.lost, kind: /あり/.test(s.lost) ? "danger" : "" });
       if (s.setting) c.push({ t: "舞台: " + s.setting });
       return c;
     };
 
-    // 各カードのレイアウトを事前計算
-    const layouts = items.map(s => {
+    // 各カードの内容を事前計算
+    const layouts = items.map((s) => {
       meas.font = titleFont;
-      const titleLines = wrapTextLines(meas, s.title || "（無題）", txtW, 2);
+      const titleLines = wrapTextLines(meas, s.title || "（無題）", innerW, 2);
       meas.font = chipFont;
-      const chips = buildChips(s).map(ch => ({ ...ch, w: Math.ceil(meas.measureText(ch.t).width) + 20 }));
-      // チップを行に詰める
+      const chips = buildChips(s).map(ch => ({ ...ch, w: Math.ceil(meas.measureText(ch.t).width) + 18 }));
       const chipRows = [];
       let row = [], rowW = 0;
       for (const ch of chips) {
-        if (row.length && rowW + ch.w + chipGap > txtW) { chipRows.push(row); row = []; rowW = 0; }
+        if (row.length && rowW + ch.w + chipGap > innerW) { chipRows.push(row); row = []; rowW = 0; }
         row.push(ch); rowW += ch.w + chipGap;
       }
       if (row.length) chipRows.push(row);
       meas.font = synFont;
-      const synLines = s.synopsis ? wrapTextLines(meas, s.synopsis, txtW, 8) : [];
+      const synLines = s.synopsis ? wrapTextLines(meas, s.synopsis, innerW, 6) : [];
       const titleH = titleLines.length * titleLH;
-      const chipsH = chipRows.length ? (chipRows.length * (chipH + lineGap)) : 0;
+      const chipsH = chipRows.length ? chipRows.length * (chipH + lineGap) : 0;
       const synH = synLines.length ? (6 + synLines.length * synLH) : 0;
-      const contentH = titleH + 6 + chipsH + synH;
-      const innerH = Math.max(coverH, contentH);
-      return { s, titleLines, chipRows, synLines, cardH: innerH + cardPad * 2 };
+      const bodyH = cardPad + titleH + 6 + chipsH + synH + cardPad;
+      return { titleLines, chipRows, synLines, cardH: coverH + bodyH };
     });
 
-    const totalH = pad + headerH + layouts.reduce((a, l) => a + l.cardH + cardGap, 0) - cardGap + pad;
+    // マソンリー配置（高さの異なるカードを最短列に積む）
+    const startY = pad + headerH;
+    const colH = new Array(cols).fill(startY);
+    const place = layouts.map((L) => {
+      let col = 0;
+      for (let i = 1; i < cols; i++) if (colH[i] < colH[col]) col = i;
+      const x = pad + col * (cardW + gap);
+      const y = colH[col];
+      colH[col] += L.cardH + gap;
+      return { x, y };
+    });
+    const totalH = Math.max(...colH) - gap + pad;
 
     const scale = Math.min(window.devicePixelRatio || 1, 2) * 1.5;
     const canvas = document.createElement("canvas");
@@ -8203,76 +8215,74 @@ const ok = await copyTextToClipboard(text);
     // ヘッダー
     ctx.fillStyle = "#1a1a2e";
     ctx.font = "700 24px 'Hiragino Sans','Yu Gothic',sans-serif";
-    ctx.fillText("シナリオ一覧", pad, pad + 6);
+    ctx.fillText("シナリオ一覧", pad, pad + 2);
     ctx.fillStyle = "#6b7280";
     ctx.font = "13px 'Hiragino Sans','Yu Gothic',sans-serif";
-    ctx.fillText(`${items.length} 件`, pad, pad + 36);
+    ctx.fillText(`${items.length} 件`, pad, pad + 32);
 
-    let y = pad + headerH;
     for (let i = 0; i < layouts.length; i++) {
       const L = layouts[i];
-      const x = pad;
-      const cardW = W - pad * 2;
+      const { x, y } = place[i];
 
-      // カード背景
+      // カード（角丸・白背景）
+      ctx.save();
+      roundRectPath(ctx, x, y, cardW, L.cardH, radius);
+      ctx.clip();
       ctx.fillStyle = "#ffffff";
-      roundRectPath(ctx, x, y, cardW, L.cardH, 12);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(26,26,46,0.10)";
-      ctx.lineWidth = 1;
-      roundRectPath(ctx, x + 0.5, y + 0.5, cardW - 1, L.cardH - 1, 12);
-      ctx.stroke();
+      ctx.fillRect(x, y, cardW, L.cardH);
 
-      // カバー画像（object-fit: cover）
-      const cx = x + cardPad, cy = y + cardPad;
-      roundRectPath(ctx, cx, cy, coverW, coverH, 8);
-      ctx.save(); ctx.clip();
+      // カバー（上部・object-fit: cover）
       const img = covers[i];
       if (img && img.width && img.height) {
-        const ar = img.width / img.height, box = coverW / coverH;
+        const ar = img.width / img.height, box = cardW / coverH;
         let sw, sh, sx, sy;
         if (ar > box) { sh = img.height; sw = sh * box; sx = (img.width - sw) / 2; sy = 0; }
         else { sw = img.width; sh = sw / box; sx = 0; sy = (img.height - sh) / 2; }
-        ctx.drawImage(img, sx, sy, sw, sh, cx, cy, coverW, coverH);
+        ctx.drawImage(img, sx, sy, sw, sh, x, y, cardW, coverH);
       } else {
-        ctx.fillStyle = "#eef0f4"; ctx.fillRect(cx, cy, coverW, coverH);
-        ctx.fillStyle = "#9aa3b2"; ctx.font = "34px sans-serif"; ctx.textAlign = "center";
-        ctx.fillText("📖", cx + coverW / 2, cy + coverH / 2 - 22);
+        ctx.fillStyle = "#eef0f4"; ctx.fillRect(x, y, cardW, coverH);
+        ctx.fillStyle = "#9aa3b2"; ctx.font = "40px sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("📖", x + cardW / 2, y + coverH / 2 - 26);
         ctx.textAlign = "left";
       }
       ctx.restore();
 
-      // テキスト
-      let ty = y + cardPad;
+      // 枠線
+      ctx.strokeStyle = "rgba(26,26,46,0.12)";
+      ctx.lineWidth = 1;
+      roundRectPath(ctx, x + 0.5, y + 0.5, cardW - 1, L.cardH - 1, radius);
+      ctx.stroke();
+
+      // 本文
+      const bx = x + cardPad;
+      let by = y + coverH + cardPad;
       ctx.fillStyle = "#1a1a2e";
       ctx.font = titleFont;
-      for (const ln of L.titleLines) { ctx.fillText(ln, txtX, ty); ty += titleLH; }
-      ty += 6;
+      for (const ln of L.titleLines) { ctx.fillText(ln, bx, by); by += titleLH; }
+      by += 6;
 
-      // チップ
       ctx.font = chipFont;
-      for (const row of L.chipRows) {
-        let chx = txtX;
-        for (const ch of row) {
-          ctx.fillStyle = ch.author ? "#eaf0fb" : "#e6f4f1";
-          roundRectPath(ctx, chx, ty, ch.w, chipH, chipH / 2);
+      for (const r of L.chipRows) {
+        let chx = bx;
+        for (const ch of r) {
+          if (ch.kind === "danger") ctx.fillStyle = "#fbe3e3";
+          else if (ch.kind === "author") ctx.fillStyle = "#eaf0fb";
+          else ctx.fillStyle = "#e6f4f1";
+          roundRectPath(ctx, chx, by, ch.w, chipH, chipH / 2);
           ctx.fill();
-          ctx.fillStyle = "#374151";
-          ctx.fillText(ch.t, chx + 10, ty + 5);
+          ctx.fillStyle = ch.kind === "danger" ? "#c01818" : "#374151";
+          ctx.fillText(ch.t, chx + 9, by + 5);
           chx += ch.w + chipGap;
         }
-        ty += chipH + lineGap;
+        by += chipH + lineGap;
       }
 
-      // あらすじ
       if (L.synLines.length) {
-        ty += 2;
+        by += 2;
         ctx.fillStyle = "#374151";
         ctx.font = synFont;
-        for (const ln of L.synLines) { ctx.fillText(ln, txtX, ty); ty += synLH; }
+        for (const ln of L.synLines) { ctx.fillText(ln, bx, by); by += synLH; }
       }
-
-      y += L.cardH + cardGap;
     }
 
     canvas.toBlob((blob) => {
