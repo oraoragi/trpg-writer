@@ -213,6 +213,7 @@
     /* Home: list toolbar + detail view */
     .home-listbar { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top: 14px; flex-wrap:wrap; }
     .home-hint { font-size:12px; color: var(--text-muted); }
+    .home-listbar-actions { display:inline-flex; align-items:center; gap:8px; }
     .scenario-card { position: relative; }
     .card-drag-handle {
       position:absolute; top:8px; left:8px; z-index:3;
@@ -252,6 +253,8 @@
     }
     .sinfo-input:focus { outline:none; border-color: rgba(var(--c-blue-rgb),0.5); box-shadow: 0 0 0 3px rgba(var(--c-blue-rgb),0.10); }
     .sinfo-textarea { resize: vertical; min-height: 70px; line-height:1.5; }
+    .sinfo-check { display:flex; align-items:flex-start; gap:7px; font-size:12px; color: var(--text-muted); cursor:pointer; line-height:1.4; }
+    .sinfo-check input { margin-top:1px; flex:0 0 auto; cursor:pointer; }
 
     /* Cover setting in editor */
     .cover-setting { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 8px 0; }
@@ -2669,14 +2672,24 @@ body.kp-panel-open #btnKpPanelToggle{
     <label class="sinfo-label">作者名
       <input type="text" id="sinfoAuthor" class="sinfo-input" placeholder="例: 山田太郎" autocomplete="off"/>
     </label>
+    <label class="sinfo-label">人数
+      <input type="text" id="sinfoPlayers" class="sinfo-input" placeholder="例: 1〜4人 / タイマン(1人)" autocomplete="off"/>
+    </label>
     <label class="sinfo-label">プレイ時間
       <input type="text" id="sinfoPlayTime" class="sinfo-input" placeholder="例: 2〜3時間 / 1セッション" autocomplete="off"/>
+    </label>
+    <label class="sinfo-label">ロスト
+      <input type="text" id="sinfoLost" class="sinfo-input" placeholder="例: あり / なし / 応相談" autocomplete="off"/>
     </label>
     <label class="sinfo-label">舞台
       <input type="text" id="sinfoSetting" class="sinfo-input" placeholder="例: 現代日本 / 1920年代アメリカ" autocomplete="off"/>
     </label>
     <label class="sinfo-label">あらすじ
       <textarea id="sinfoSynopsis" class="sinfo-input sinfo-textarea" rows="4" placeholder="プレイ希望者向けの紹介文・あらすじ"></textarea>
+    </label>
+    <label class="sinfo-check">
+      <input type="checkbox" id="sinfoHide"/>
+      <span>詳細表示の一覧に表示しない（簡易表示には出ます）</span>
     </label>
   </div>
 </div>
@@ -2733,7 +2746,10 @@ body.kp-panel-open #btnKpPanelToggle{
 <input id="fileImport" type="file" accept="application/json" class="hidden"/>
 <div class="home-listbar">
   <span class="home-hint">⠿ カードをドラッグして並び替えできます</span>
-  <button class="ghost" id="btnHomeViewToggle" type="button" title="詳細表示と簡易表示を切り替え">詳細表示</button>
+  <div class="home-listbar-actions">
+    <button class="ghost" id="btnHomeExportImage" type="button" title="詳細表示の一覧を画像として保存">🖼 画像で出力</button>
+    <button class="ghost" id="btnHomeViewToggle" type="button" title="詳細表示と簡易表示を切り替え">詳細表示</button>
+  </div>
 </div>
 <div class="card-grid" id="homeCardList"></div>
 </div>
@@ -3692,6 +3708,9 @@ function ensureKpMemos(s){
     if (typeof s.playTime !== "string") s.playTime = "";
     if (typeof s.setting !== "string") s.setting = "";
     if (typeof s.synopsis !== "string") s.synopsis = "";
+    if (typeof s.players !== "string") s.players = "";
+    if (typeof s.lost !== "string") s.lost = "";
+    if (typeof s.hideFromDetail !== "boolean") s.hideFromDetail = false;
 
     s.chapters.forEach(ch => {
       if (!Array.isArray(ch.scenes)) ch.scenes = [];
@@ -7968,6 +7987,7 @@ const ok = await copyTextToClipboard(text);
     }
 
     app.scenarios.forEach(s => {
+      if (detail && s.hideFromDetail) return; // 詳細表示では非表示指定を隠す
       const card = document.createElement("div");
       card.className = "scenario-card";
       card.dataset.scenarioId = s.id;
@@ -7986,7 +8006,9 @@ const ok = await copyTextToClipboard(text);
       if (detail) {
         const chips = [];
         if (s.author) chips.push(`<span class="card-chip author">作者: ${escapeHtml(s.author)}</span>`);
+        if (s.players) chips.push(`<span class="card-chip">人数: ${escapeHtml(s.players)}</span>`);
         if (s.playTime) chips.push(`<span class="card-chip">⏱ ${escapeHtml(s.playTime)}</span>`);
+        if (s.lost) chips.push(`<span class="card-chip">ロスト: ${escapeHtml(s.lost)}</span>`);
         if (s.setting) chips.push(`<span class="card-chip">舞台: ${escapeHtml(s.setting)}</span>`);
         const synopsis = s.synopsis
           ? `<div class="card-synopsis">${escapeHtml(s.synopsis)}</div>`
@@ -8020,21 +8042,235 @@ const ok = await copyTextToClipboard(text);
         handle: ".card-drag-handle",
         animation: 150,
         onEnd: () => {
-          const order = Array.from(dom.homeCardList.querySelectorAll(".scenario-card"))
+          const domOrder = Array.from(dom.homeCardList.querySelectorAll(".scenario-card"))
             .map(el => el.dataset.scenarioId)
             .filter(Boolean);
-          if (order.length !== app.scenarios.length) { renderHome(); return; }
+          const isHidden = (sc) => detail && sc.hideFromDetail;
           const byId = {};
           app.scenarios.forEach(x => { byId[x.id] = x; });
-          const reordered = order.map(id => byId[id]).filter(Boolean);
-          if (reordered.length === app.scenarios.length) {
-            app.scenarios = reordered;
+          const visibleCount = app.scenarios.filter(x => !isHidden(x)).length;
+          if (domOrder.length !== visibleCount) { renderHome(); return; }
+          // 非表示シナリオは元の位置に固定し、表示中のものだけ並べ替える
+          const queue = domOrder.slice();
+          const result = app.scenarios.map(sc => {
+            if (isHidden(sc)) return sc;
+            const nextId = queue.shift();
+            return byId[nextId] || sc;
+          });
+          if (result.length === app.scenarios.length) {
+            app.scenarios = result;
             saveApp();
             renderSidebarList();
           }
         }
       });
     } catch {}
+  }
+
+  // 詳細表示の一覧を1枚の画像（PNG）として書き出す（募集先に貼る用）
+  function loadImageMaybe(src) {
+    return new Promise((resolve) => {
+      if (!src) { resolve(null); return; }
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  function wrapTextLines(ctx, text, maxWidth, maxLines) {
+    const out = [];
+    const paragraphs = String(text || "").split("\n");
+    for (const para of paragraphs) {
+      if (para === "") { out.push(""); if (maxLines && out.length >= maxLines) break; continue; }
+      let line = "";
+      for (const chr of para) {
+        const test = line + chr;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          out.push(line);
+          line = chr;
+          if (maxLines && out.length >= maxLines) break;
+        } else {
+          line = test;
+        }
+      }
+      if (maxLines && out.length >= maxLines) break;
+      out.push(line);
+      if (maxLines && out.length >= maxLines) break;
+    }
+    if (maxLines && out.length > maxLines) out.length = maxLines;
+    return out;
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  async function exportListAsImage() {
+    const items = app.scenarios.filter(s => !s.hideFromDetail);
+    if (!items.length) { try { showToast("出力できるシナリオがありません"); } catch {} return; }
+    try { showToast("画像を生成中…"); } catch {}
+
+    const covers = await Promise.all(items.map(s => loadImageMaybe(s.coverImage)));
+
+    // レイアウト定数（CSSピクセル基準）
+    const W = 860;
+    const pad = 28;
+    const headerH = 64;
+    const cardGap = 18;
+    const cardPad = 18;
+    const coverW = 168, coverH = 112;
+    const titleFont = "700 21px 'Hiragino Sans','Yu Gothic',sans-serif";
+    const chipFont = "600 13px 'Hiragino Sans','Yu Gothic',sans-serif";
+    const synFont = "14px 'Hiragino Sans','Yu Gothic',sans-serif";
+    const synLH = 22, titleLH = 28, chipH = 24, chipGap = 7, lineGap = 7;
+    const txtX = pad + cardPad + coverW + 16;
+    const txtW = W - pad - cardPad - txtX;
+
+    // 計測用キャンバス
+    const meas = document.createElement("canvas").getContext("2d");
+
+    const buildChips = (s) => {
+      const c = [];
+      if (s.author) c.push({ t: "作者: " + s.author, author: true });
+      if (s.players) c.push({ t: "人数: " + s.players });
+      if (s.playTime) c.push({ t: "⏱ " + s.playTime });
+      if (s.lost) c.push({ t: "ロスト: " + s.lost });
+      if (s.setting) c.push({ t: "舞台: " + s.setting });
+      return c;
+    };
+
+    // 各カードのレイアウトを事前計算
+    const layouts = items.map(s => {
+      meas.font = titleFont;
+      const titleLines = wrapTextLines(meas, s.title || "（無題）", txtW, 2);
+      meas.font = chipFont;
+      const chips = buildChips(s).map(ch => ({ ...ch, w: Math.ceil(meas.measureText(ch.t).width) + 20 }));
+      // チップを行に詰める
+      const chipRows = [];
+      let row = [], rowW = 0;
+      for (const ch of chips) {
+        if (row.length && rowW + ch.w + chipGap > txtW) { chipRows.push(row); row = []; rowW = 0; }
+        row.push(ch); rowW += ch.w + chipGap;
+      }
+      if (row.length) chipRows.push(row);
+      meas.font = synFont;
+      const synLines = s.synopsis ? wrapTextLines(meas, s.synopsis, txtW, 8) : [];
+      const titleH = titleLines.length * titleLH;
+      const chipsH = chipRows.length ? (chipRows.length * (chipH + lineGap)) : 0;
+      const synH = synLines.length ? (6 + synLines.length * synLH) : 0;
+      const contentH = titleH + 6 + chipsH + synH;
+      const innerH = Math.max(coverH, contentH);
+      return { s, titleLines, chipRows, synLines, cardH: innerH + cardPad * 2 };
+    });
+
+    const totalH = pad + headerH + layouts.reduce((a, l) => a + l.cardH + cardGap, 0) - cardGap + pad;
+
+    const scale = Math.min(window.devicePixelRatio || 1, 2) * 1.5;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(W * scale);
+    canvas.height = Math.round(totalH * scale);
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.textBaseline = "top";
+
+    // 背景
+    ctx.fillStyle = "#faf9f7";
+    ctx.fillRect(0, 0, W, totalH);
+
+    // ヘッダー
+    ctx.fillStyle = "#1a1a2e";
+    ctx.font = "700 24px 'Hiragino Sans','Yu Gothic',sans-serif";
+    ctx.fillText("シナリオ一覧", pad, pad + 6);
+    ctx.fillStyle = "#6b7280";
+    ctx.font = "13px 'Hiragino Sans','Yu Gothic',sans-serif";
+    ctx.fillText(`${items.length} 件`, pad, pad + 36);
+
+    let y = pad + headerH;
+    for (let i = 0; i < layouts.length; i++) {
+      const L = layouts[i];
+      const x = pad;
+      const cardW = W - pad * 2;
+
+      // カード背景
+      ctx.fillStyle = "#ffffff";
+      roundRectPath(ctx, x, y, cardW, L.cardH, 12);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(26,26,46,0.10)";
+      ctx.lineWidth = 1;
+      roundRectPath(ctx, x + 0.5, y + 0.5, cardW - 1, L.cardH - 1, 12);
+      ctx.stroke();
+
+      // カバー画像（object-fit: cover）
+      const cx = x + cardPad, cy = y + cardPad;
+      roundRectPath(ctx, cx, cy, coverW, coverH, 8);
+      ctx.save(); ctx.clip();
+      const img = covers[i];
+      if (img && img.width && img.height) {
+        const ar = img.width / img.height, box = coverW / coverH;
+        let sw, sh, sx, sy;
+        if (ar > box) { sh = img.height; sw = sh * box; sx = (img.width - sw) / 2; sy = 0; }
+        else { sw = img.width; sh = sw / box; sx = 0; sy = (img.height - sh) / 2; }
+        ctx.drawImage(img, sx, sy, sw, sh, cx, cy, coverW, coverH);
+      } else {
+        ctx.fillStyle = "#eef0f4"; ctx.fillRect(cx, cy, coverW, coverH);
+        ctx.fillStyle = "#9aa3b2"; ctx.font = "34px sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("📖", cx + coverW / 2, cy + coverH / 2 - 22);
+        ctx.textAlign = "left";
+      }
+      ctx.restore();
+
+      // テキスト
+      let ty = y + cardPad;
+      ctx.fillStyle = "#1a1a2e";
+      ctx.font = titleFont;
+      for (const ln of L.titleLines) { ctx.fillText(ln, txtX, ty); ty += titleLH; }
+      ty += 6;
+
+      // チップ
+      ctx.font = chipFont;
+      for (const row of L.chipRows) {
+        let chx = txtX;
+        for (const ch of row) {
+          ctx.fillStyle = ch.author ? "#eaf0fb" : "#e6f4f1";
+          roundRectPath(ctx, chx, ty, ch.w, chipH, chipH / 2);
+          ctx.fill();
+          ctx.fillStyle = "#374151";
+          ctx.fillText(ch.t, chx + 10, ty + 5);
+          chx += ch.w + chipGap;
+        }
+        ty += chipH + lineGap;
+      }
+
+      // あらすじ
+      if (L.synLines.length) {
+        ty += 2;
+        ctx.fillStyle = "#374151";
+        ctx.font = synFont;
+        for (const ln of L.synLines) { ctx.fillText(ln, txtX, ty); ty += synLH; }
+      }
+
+      y += L.cardH + cardGap;
+    }
+
+    canvas.toBlob((blob) => {
+      if (!blob) { try { showToast("画像の生成に失敗しました"); } catch {} return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "scenario-list.png";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      try { showToast("画像を保存しました"); } catch {}
+    }, "image/png");
   }
 
   // エディタ画面 (編集モード)
@@ -8728,9 +8964,20 @@ dom.scenarioTitle.value = s.title;
       };
     };
     bind("sinfoAuthor", "author");
+    bind("sinfoPlayers", "players");
     bind("sinfoPlayTime", "playTime");
+    bind("sinfoLost", "lost");
     bind("sinfoSetting", "setting");
     bind("sinfoSynopsis", "synopsis");
+    const hideEl = document.getElementById("sinfoHide");
+    if (hideEl) {
+      hideEl.checked = !!s.hideFromDetail;
+      hideEl.onchange = (e) => {
+        s.hideFromDetail = !!e.target.checked;
+        s.updatedAt = Date.now();
+        __hasDirtyChanges = true;
+      };
+    }
   }
 
   function renderPcList(s) {
@@ -8988,6 +9235,8 @@ dom.scenarioTitle.value = s.title;
         renderHome();
       };
     }
+    const ex = document.getElementById("btnHomeExportImage");
+    if (ex) ex.onclick = () => { try { exportListAsImage(); } catch (err) { try { showToast("画像の生成に失敗しました"); } catch {} } };
   } catch {}
 
 
