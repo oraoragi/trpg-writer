@@ -244,7 +244,7 @@
       padding:3px 9px; border-radius:999px; background: var(--accent-soft);
       color: var(--text-main); border:1px solid rgba(var(--c-teal-rgb),0.25);
     }
-    .card-chip.author { background: var(--c-navy); border-color: var(--c-navy); color: #fff; font-weight:700; }
+    .card-chip.author { background: #2b4a73; border-color: #2b4a73; color: #fff; font-weight:700; }
     .card-chip.lost-danger { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.40); color: #c01818; font-weight:700; }
     .card-synopsis {
       font-size: 13px; line-height: 1.6; color: var(--text-main);
@@ -8141,10 +8141,11 @@ const ok = await copyTextToClipboard(text);
     const cardW = 320;
     const gap = 20;
     const pad = 28;
-    const headerH = 58;
+    const headerH = 0;
     const coverH = 180;
     const cardPad = 16;
     const radius = 14;
+    const synPad = 11;
     const W = pad * 2 + cols * cardW + (cols - 1) * gap;
     const innerW = cardW - cardPad * 2;
 
@@ -8179,12 +8180,14 @@ const ok = await copyTextToClipboard(text);
       }
       if (row.length) chipRows.push(row);
       meas.font = synFont;
-      const synLines = s.synopsis ? wrapTextLines(meas, s.synopsis, innerW, 6) : [];
+      const synEmpty = !s.synopsis;
+      const synLines = wrapTextLines(meas, synEmpty ? "あらすじ未記入" : s.synopsis, innerW - synPad * 2, 6);
       const titleH = titleLines.length * titleLH;
       const chipsH = chipRows.length ? chipRows.length * (chipH + lineGap) : 0;
-      const synH = synLines.length ? (6 + synLines.length * synLH) : 0;
+      const synBoxH = synLines.length * synLH + synPad * 2;
+      const synH = 8 + synBoxH;
       const bodyH = cardPad + titleH + 6 + chipsH + synH + cardPad;
-      return { titleLines, chipRows, synLines, cardH: coverH + bodyH };
+      return { titleLines, chipRows, synLines, synEmpty, cardH: coverH + bodyH };
     });
 
     // 行グリッド配置（同じ行のカードは高さを揃える）
@@ -8209,30 +8212,28 @@ const ok = await copyTextToClipboard(text);
     ctx.textBaseline = "top";
 
     // 背景
-    ctx.fillStyle = "#faf9f7";
+    ctx.fillStyle = "#f5f5f7";
     ctx.fillRect(0, 0, W, totalH);
-
-    // ヘッダー
-    ctx.fillStyle = "#1a1a2e";
-    ctx.font = "700 24px 'Hiragino Sans','Yu Gothic',sans-serif";
-    ctx.fillText("シナリオ一覧", pad, pad + 2);
-    ctx.fillStyle = "#6b7280";
-    ctx.font = "13px 'Hiragino Sans','Yu Gothic',sans-serif";
-    ctx.fillText(`${items.length} 件`, pad, pad + 32);
 
     for (let i = 0; i < layouts.length; i++) {
       const L = layouts[i];
       const { x, y, rowH } = place[i];
       const cardH = rowH; // 行内で高さを揃える
 
-      // カード（角丸・白背景）
+      // カード影＋白背景
+      ctx.save();
+      ctx.shadowColor = "rgba(19,36,64,0.10)";
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 3;
+      roundRectPath(ctx, x, y, cardW, cardH, radius);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.restore();
+
+      // カバー（上部・object-fit: cover）
       ctx.save();
       roundRectPath(ctx, x, y, cardW, cardH, radius);
       ctx.clip();
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(x, y, cardW, cardH);
-
-      // カバー（上部・object-fit: cover）
       const img = covers[i];
       if (img && img.width && img.height) {
         const ar = img.width / img.height, box = cardW / coverH;
@@ -8249,7 +8250,7 @@ const ok = await copyTextToClipboard(text);
       ctx.restore();
 
       // 枠線
-      ctx.strokeStyle = "rgba(26,26,46,0.12)";
+      ctx.strokeStyle = "rgba(26,26,46,0.10)";
       ctx.lineWidth = 1;
       roundRectPath(ctx, x + 0.5, y + 0.5, cardW - 1, cardH - 1, radius);
       ctx.stroke();
@@ -8267,7 +8268,7 @@ const ok = await copyTextToClipboard(text);
         let chx = bx;
         for (const ch of r) {
           if (ch.kind === "danger") ctx.fillStyle = "#fbe3e3";
-          else if (ch.kind === "author") ctx.fillStyle = "#132440";
+          else if (ch.kind === "author") ctx.fillStyle = "#2b4a73";
           else ctx.fillStyle = "#e6f4f1";
           roundRectPath(ctx, chx, by, ch.w, chipH, chipH / 2);
           ctx.fill();
@@ -8278,12 +8279,20 @@ const ok = await copyTextToClipboard(text);
         by += chipH + lineGap;
       }
 
-      if (L.synLines.length) {
-        by += 2;
-        ctx.fillStyle = "#374151";
-        ctx.font = synFont;
-        for (const ln of L.synLines) { ctx.fillText(ln, bx, by); by += synLH; }
-      }
+      // あらすじ（枠付きボックス）
+      by += 8;
+      const boxH = L.synLines.length * synLH + synPad * 2;
+      ctx.fillStyle = "#f6f5f3";
+      roundRectPath(ctx, bx, by, innerW, boxH, 8);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(19,36,64,0.10)";
+      ctx.lineWidth = 1;
+      roundRectPath(ctx, bx + 0.5, by + 0.5, innerW - 1, boxH - 1, 8);
+      ctx.stroke();
+      ctx.fillStyle = L.synEmpty ? "#9aa0a6" : "#374151";
+      ctx.font = L.synEmpty ? ("italic " + synFont) : synFont;
+      let sty = by + synPad;
+      for (const ln of L.synLines) { ctx.fillText(ln, bx + synPad, sty); sty += synLH; }
     }
 
     canvas.toBlob((blob) => {
