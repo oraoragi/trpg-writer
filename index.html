@@ -8150,10 +8150,10 @@ const ok = await copyTextToClipboard(text);
     const W = pad * 2 + cols * cardW + (cols - 1) * gap;
     const innerW = cardW - cardPad * 2;
 
-    const titleFont = "700 19px 'Hiragino Sans','Yu Gothic',sans-serif";
+    const titleFont = "700 16px 'Hiragino Sans','Yu Gothic',sans-serif";
     const chipFont = "600 12px 'Hiragino Sans','Yu Gothic',sans-serif";
     const synFont = "13px 'Hiragino Sans','Yu Gothic',sans-serif";
-    const titleLH = 26, synLH = 21, chipH = 23, chipGap = 6, lineGap = 6;
+    const titleLH = 22, synLH = 21, chipH = 23, chipGap = 6, lineGap = 6;
     const chipLineH = 15, chipPadY = 4;
 
     const meas = document.createElement("canvas").getContext("2d");
@@ -8192,19 +8192,20 @@ const ok = await copyTextToClipboard(text);
       const titleH = titleLines.length * titleLH;
       const chipsH = chipRows.reduce((a, r) => a + Math.max(...r.map(c => c.h)) + lineGap, 0);
       const synBoxH = synLines.length * synLH + synPad * 2;
-      const synH = 8 + synBoxH;
-      const bodyH = cardPad + titleH + 6 + chipsH + synH + cardPad;
-      return { titleLines, chipRows, synLines, synEmpty, cardH: coverH + bodyH };
+      return { titleLines, chipRows, synLines, synEmpty, titleH, chipsH, synBoxH };
     });
 
-    // 行グリッド配置（同じ行のカードは高さを揃える）
+    // 行グリッド配置（同じ行はタイトル・情報・あらすじ欄の高さを揃える）
     const place = new Array(layouts.length);
     let gy = pad + headerH;
     for (let i = 0; i < layouts.length; i += cols) {
       const row = layouts.slice(i, i + cols);
-      const rowH = Math.max(...row.map(L => L.cardH));
+      const rowTitleH = Math.max(...row.map(L => L.titleH));
+      const rowChipsH = Math.max(...row.map(L => L.chipsH));
+      const rowSynH = Math.max(...row.map(L => L.synBoxH));
+      const rowH = coverH + cardPad + rowTitleH + 6 + rowChipsH + 8 + rowSynH + cardPad;
       row.forEach((L, ci) => {
-        place[i + ci] = { x: pad + ci * (cardW + gap), y: gy, rowH };
+        place[i + ci] = { x: pad + ci * (cardW + gap), y: gy, rowH, rowTitleH, rowChipsH, rowSynH };
       });
       gy += rowH + gap;
     }
@@ -8224,8 +8225,8 @@ const ok = await copyTextToClipboard(text);
 
     for (let i = 0; i < layouts.length; i++) {
       const L = layouts[i];
-      const { x, y, rowH } = place[i];
-      const cardH = rowH; // 行内で高さを揃える
+      const { x, y, rowH, rowTitleH, rowChipsH, rowSynH } = place[i];
+      const cardH = rowH;
 
       // カード影＋白背景
       ctx.save();
@@ -8262,15 +8263,20 @@ const ok = await copyTextToClipboard(text);
       roundRectPath(ctx, x + 0.5, y + 0.5, cardW - 1, cardH - 1, radius);
       ctx.stroke();
 
-      // 本文
       const bx = x + cardPad;
-      let by = y + coverH + cardPad;
+      const titleTop = y + coverH + cardPad;
+      const chipsTop = titleTop + rowTitleH + 6;
+      const synTop = chipsTop + rowChipsH + 8;
+
+      // タイトル
       ctx.fillStyle = "#1a1a2e";
       ctx.font = titleFont;
-      for (const ln of L.titleLines) { ctx.fillText(ln, bx, by); by += titleLH; }
-      by += 6;
+      let ty = titleTop;
+      for (const ln of L.titleLines) { ctx.fillText(ln, bx, ty); ty += titleLH; }
 
+      // 情報チップ
       ctx.font = chipFont;
+      let by = chipsTop;
       for (const r of L.chipRows) {
         const rowMaxH = Math.max(...r.map(c => c.h));
         let chx = bx;
@@ -8288,19 +8294,17 @@ const ok = await copyTextToClipboard(text);
         by += rowMaxH + lineGap;
       }
 
-      // あらすじ（枠付きボックス）
-      by += 8;
-      const boxH = L.synLines.length * synLH + synPad * 2;
+      // あらすじ（枠付きボックス・行内で高さを揃える）
       ctx.fillStyle = "#f6f5f3";
-      roundRectPath(ctx, bx, by, innerW, boxH, 8);
+      roundRectPath(ctx, bx, synTop, innerW, rowSynH, 8);
       ctx.fill();
       ctx.strokeStyle = "rgba(19,36,64,0.10)";
       ctx.lineWidth = 1;
-      roundRectPath(ctx, bx + 0.5, by + 0.5, innerW - 1, boxH - 1, 8);
+      roundRectPath(ctx, bx + 0.5, synTop + 0.5, innerW - 1, rowSynH - 1, 8);
       ctx.stroke();
       ctx.fillStyle = L.synEmpty ? "#9aa0a6" : "#374151";
       ctx.font = L.synEmpty ? ("italic " + synFont) : synFont;
-      let sty = by + synPad;
+      let sty = synTop + synPad;
       for (const ln of L.synLines) { ctx.fillText(ln, bx + synPad, sty); sty += synLH; }
     }
 
