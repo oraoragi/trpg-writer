@@ -4917,16 +4917,33 @@ function createKpMemoAtSelection(q){
     s.updatedAt = Date.now();
     if (!Array.isArray(s.chapters)) s.chapters = [];
 
+    const sceneIdMap = {}; // 旧シーンID -> 新シーンID
+
     s.chapters.forEach(ch => {
       ch.id = generateId();
       if (!Array.isArray(ch.scenes)) ch.scenes = [];
       ch.scenes.forEach(sc => {
+        const oldSceneId = sc.id;
         sc.id = generateId();
+        if (oldSceneId) sceneIdMap[oldSceneId] = sc.id;
+        // 本文中のKPアンカーが持つ data-scene-id も新IDへ更新
+        if (typeof sc.body === "string" && oldSceneId && sc.body.indexOf('data-scene-id="' + oldSceneId + '"') !== -1) {
+          sc.body = sc.body.split('data-scene-id="' + oldSceneId + '"').join('data-scene-id="' + sc.id + '"');
+        }
         if (!Array.isArray(sc.tags)) sc.tags = [];
         if (!SCENE_STATUS[sc.status]) sc.status = "unused";
         if (!("body" in sc)) sc.body = "";
       });
     });
+
+    // KPメモのシーン参照を新IDへ張り替える（メモID自体は本文アンカーと対応するため変更しない）
+    if (Array.isArray(s.kpMemos)) {
+      s.kpMemos.forEach(m => {
+        if (m && typeof m.sceneId === "string" && sceneIdMap[m.sceneId]) {
+          m.sceneId = sceneIdMap[m.sceneId];
+        }
+      });
+    }
 
     s.currentChapterId = s.chapters[0]?.id || null;
     normalizeScenarioData(s);
