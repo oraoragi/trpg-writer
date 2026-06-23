@@ -225,6 +225,16 @@
     .home-hint { font-size:12px; color: var(--text-muted); }
     .home-listbar-actions { display:inline-flex; align-items:center; gap:8px; }
     .scenario-card { position: relative; }
+    .scenario-card { cursor: pointer; }
+    .card-delete-btn {
+      position:absolute; top:8px; right:8px; z-index:4;
+      width:30px; height:30px; border-radius:8px; cursor:pointer; border:none;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(0,0,0,0.40); color:#fff; font-size:14px; line-height:1;
+      opacity:0; transition: opacity .12s, background .12s; backdrop-filter: blur(2px);
+    }
+    .scenario-card:hover .card-delete-btn { opacity:1; }
+    .card-delete-btn:hover { background: rgba(220,38,38,0.88); }
     .card-drag-handle {
       position:absolute; top:8px; left:8px; z-index:3;
       width:26px; height:26px; border-radius:7px; cursor:grab;
@@ -812,21 +822,6 @@
 
     .copy-flash { animation: flash .4s ease; }
 
-    /* 閲覧モード：読みやすい幅（卓中のちら見前提で一行を短く） */
-    .paper-body.reading-narrow .view-chapter { max-width: 820px; margin-left: auto; margin-right: auto; }
-
-    /* 閲覧モード：コピー済み（読み上げ済み）の目印 — 同じ描写の二度読みを防ぐ */
-    .view-content .copy-box.copied,
-    .view-content .ccfolia-line.copied { position: relative; }
-    .view-content .copy-box.copied::after {
-      content: "✓ コピー済"; position:absolute; top:6px; right:8px;
-      font-size:11px; font-weight:700; color: var(--c-teal, #0a9396);
-      background: rgba(10,147,150,0.12); padding:1px 7px; border-radius:999px;
-      opacity:1 !important;
-    }
-    .view-content .copy-box.copied { opacity: 0.72; }
-    .view-content .ccfolia-line.copied { opacity: 0.6; }
-
     /* 閲覧モード：1タップ「完了」ボタン（使用済みにして隠す） */
     .scene-done-btn {
       font-size:12px; font-weight:700; line-height:1; cursor:pointer;
@@ -835,13 +830,6 @@
     }
     .scene-done-btn:hover { background: rgba(var(--c-teal-rgb),0.22); }
 
-    /* 閲覧モード：進行トグル（読み幅） */
-    .view-narrow-toggle {
-      font-size:12px; font-weight:600; cursor:pointer; margin-left:8px;
-      padding:5px 11px; border-radius:999px; border:1px solid rgba(255,255,255,0.35);
-      background: rgba(255,255,255,0.12); color:#fff;
-    }
-    .view-narrow-toggle.off { opacity:0.7; }
     @keyframes flash { 0% { background: #86efac; } 100% { background: #f0fdf4; } }
 
     /* Toast (コピー通知) */
@@ -1157,7 +1145,11 @@
       /* Home: keep JSON controls available (icon buttons) */
 
       /* Editor header: compact mobile layout */
-      .editor-toolbar { padding: 8px 10px; gap: 6px; flex-wrap: wrap; }
+      .editor-toolbar { padding: 8px 10px; gap: 6px; flex-wrap: wrap; transition: max-height .25s ease, padding .25s ease, opacity .2s ease; max-height: 320px; overflow: hidden; }
+      .editor-toolbar.toolbar-collapsed {
+        max-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important;
+        opacity: 0; border-bottom-color: transparent; box-shadow: none;
+      }
       .editor-toolbar > div:first-child { width: 100%; }
       .editor-toolbar .row { flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
       #saveStatus { display: none !important; }
@@ -2666,7 +2658,10 @@ body.kp-panel-open #btnKpPanelToggle{
 <div class="sidebar-resize" id="sidebarResize" title="ドラッグでメニュー幅を変更"></div>
 <div class="sidebar-header">
   <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-    <div class="brand">TRPG Writer</div>
+    <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+      <button class="ghost" id="btnBackHome" type="button" title="ホームに戻る" style="display:none; padding:5px 10px; font-size:13px; white-space:nowrap;">← ホーム</button>
+      <div class="brand">TRPG Writer</div>
+    </div>
     <button class="ghost mobile-only" id="btnMobileMenuClose" type="button" title="メニューを閉じる">閉じる</button>
   </div>
 </div>
@@ -2675,7 +2670,6 @@ body.kp-panel-open #btnKpPanelToggle{
 <div class="nav-list" id="scenarioListNav"></div>
 </div>
 <div class="hidden" id="editorMenu">
-<button class="ghost" id="btnBackHome" style="width:100%; justify-content:flex-start; margin-bottom:12px;">← ホームに戻る</button>
 <div class="cover-setting" id="coverSetting">
   <div id="coverPreviewWrap"></div>
   <div style="display:flex; flex-direction:column; gap:4px;">
@@ -3748,8 +3742,6 @@ function ensureKpMemos(s){
   const __kpUI = { activeId: null };
   let homeDetailMode = false;
   try { homeDetailMode = localStorage.getItem("trpg_home_detail") === "1"; } catch {}
-  let viewNarrow = true;
-  try { const v = localStorage.getItem("trpg_view_narrow"); viewNarrow = (v === null) ? true : (v === "1"); } catch {}
   // KPメモ context: which scene is currently active (selected / focused)
   const __kpCTX = { sceneId: null, chapterId: null };
 
@@ -7921,7 +7913,6 @@ function setupViewCopyHandler() {
           ccfLine.style.transition = 'background .15s';
           ccfLine.style.background = 'rgba(156,163,175,0.15)';
           setTimeout(() => { ccfLine.style.background = ''; }, 400);
-          try { ccfLine.classList.add('copied'); } catch {}
           showToast("コピーしました！");
         } else {
           showToast("コピーに失敗しました（ブラウザ設定をご確認ください）");
@@ -7948,7 +7939,6 @@ const ok = await copyTextToClipboard(text);
       if (ok) {
         box.classList.add('copy-flash');
         setTimeout(() => box.classList.remove('copy-flash'), 450);
-        try { box.classList.add('copied'); } catch {}
         showToast("コピーしました！");
       } else {
         showToast("コピーに失敗しました（ブラウザ設定をご確認ください）");
@@ -8004,6 +7994,7 @@ const ok = await copyTextToClipboard(text);
     dom.homeMenu.classList.remove("hidden");
     dom.editorMenu.classList.add("hidden");
     dom.btnNew.classList.remove("hidden");
+    try { if (dom.btnBackHome) dom.btnBackHome.style.display = "none"; } catch {}
 
     dom.homeCardList.innerHTML = "";
     renderSidebarList();
@@ -8026,16 +8017,17 @@ const ok = await copyTextToClipboard(text);
       const card = document.createElement("div");
       card.className = "scenario-card";
       card.dataset.scenarioId = s.id;
+      card.addEventListener("click", (e) => {
+        if (e.target.closest(".card-drag-handle") || e.target.closest(".card-delete-btn")) return;
+        if (Date.now() < (dom.homeCardList.__suppressClickUntil || 0)) return;
+        openScenario(s.id);
+      });
       const handleHtml = `<div class="card-drag-handle" title="ドラッグで並び替え">⠿</div>`;
+      const deleteHtml = `<button class="card-delete-btn" type="button" title="削除" onclick="event.stopPropagation(); deleteScenario('${s.id}')">🗑</button>`;
       const coverHtml = s.coverImage
         ? `<img class="card-cover" src="${s.coverImage}" alt="表紙"/>`
         : `<div class="card-cover-placeholder">📖</div>`;
 
-      const actionsHtml = `
-        <div class="card-actions">
-          <button class="ghost" onclick="openScenario('${s.id}')">編集/閲覧</button>
-          <button class="ghost danger" onclick="deleteScenario('${s.id}')">削除</button>
-        </div>`;
       const metaHtml = `<div class="card-meta">最終更新: ${new Date(s.updatedAt).toLocaleString()}</div>`;
 
       if (detail) {
@@ -8050,6 +8042,7 @@ const ok = await copyTextToClipboard(text);
           : `<div class="card-synopsis empty">あらすじ未記入</div>`;
         card.innerHTML = `
           ${handleHtml}
+          ${deleteHtml}
           ${coverHtml}
           <div class="card-body">
             <div class="card-title">${escapeHtml(s.title || "（無題）")}</div>
@@ -8059,11 +8052,11 @@ const ok = await copyTextToClipboard(text);
       } else {
         card.innerHTML = `
           ${handleHtml}
+          ${deleteHtml}
           ${coverHtml}
           <div class="card-body">
             <div class="card-title">${escapeHtml(s.title || "（無題）")}</div>
             ${metaHtml}
-            ${actionsHtml}
           </div>`;
       }
       dom.homeCardList.appendChild(card);
@@ -8077,6 +8070,7 @@ const ok = await copyTextToClipboard(text);
         handle: ".card-drag-handle",
         animation: 150,
         onEnd: () => {
+          dom.homeCardList.__suppressClickUntil = Date.now() + 300;
           const domOrder = Array.from(dom.homeCardList.querySelectorAll(".scenario-card"))
             .map(el => el.dataset.scenarioId)
             .filter(Boolean);
@@ -8344,7 +8338,8 @@ const ok = await copyTextToClipboard(text);
     const s = getCurrentScenario();
     if (!s) return renderHome();
 
-    
+    try { const eh = document.getElementById("editorHeader"); if (eh) eh.classList.remove("toolbar-collapsed"); } catch {}
+    try { if (dom.btnBackHome) dom.btnBackHome.style.display = ""; } catch {}
     normalizeScenarioData(s);
 // UI切り替え
     dom.homeView.classList.add("hidden");
@@ -8894,21 +8889,6 @@ dom.scenarioTitle.value = s.title;
       <h1 class="paper-title">${escapeHtml(s.title)}</h1>
       <div class="paper-meta">CHAPTER: ${escapeHtml(activeChapter.title)} ─ ${totalSc} シーン ／ ${chCharCount.toLocaleString()} 字 ／ 進行 ${doneSc}/${totalSc}（残り ${remainSc}）</div>
     `;
-    // 読み幅トグル（卓中の可読性）
-    const narrowToggle = document.createElement("button");
-    narrowToggle.type = "button";
-    narrowToggle.className = "view-narrow-toggle" + (viewNarrow ? "" : " off");
-    narrowToggle.textContent = viewNarrow ? "📖 読みやすい幅: ON" : "📖 読みやすい幅: OFF";
-    narrowToggle.title = "本文の一行を短くして読みやすくします（卓中のちら見向け）";
-    narrowToggle.onclick = () => {
-      viewNarrow = !viewNarrow;
-      try { localStorage.setItem("trpg_view_narrow", viewNarrow ? "1" : "0"); } catch {}
-      const pb = dom.paperContent.querySelector(".paper-body");
-      if (pb) pb.classList.toggle("reading-narrow", viewNarrow);
-      narrowToggle.classList.toggle("off", !viewNarrow);
-      narrowToggle.textContent = viewNarrow ? "📖 読みやすい幅: ON" : "📖 読みやすい幅: OFF";
-    };
-    paperHead.appendChild(narrowToggle);
     // KP visibility toggle
     const kpToggle = document.createElement("button");
     kpToggle.type = "button";
@@ -8926,7 +8906,7 @@ dom.scenarioTitle.value = s.title;
     dom.paperContent.appendChild(paperHead);
 
     const body = document.createElement("div");
-    body.className = "paper-body" + (viewNarrow ? " reading-narrow" : "");
+    body.className = "paper-body";
 
     const chDiv = document.createElement("section");
     chDiv.className = "view-chapter";
@@ -9303,6 +9283,31 @@ dom.scenarioTitle.value = s.title;
     }
     const ex = document.getElementById("btnHomeExportImage");
     if (ex) ex.onclick = () => { try { exportListAsImage(); } catch (err) { try { showToast("画像の生成に失敗しました"); } catch {} } };
+  } catch {}
+
+  // スマホ：エディタ本文を下スクロールで上部メニューを隠す（上スクロールで再表示）
+  try {
+    const scroller = document.getElementById("editorBodyContainer");
+    const headerEl = document.getElementById("editorHeader");
+    if (scroller && headerEl) {
+      let lastTop = 0;
+      scroller.addEventListener("scroll", () => {
+        if (!(typeof isMobileLayout === "function" && isMobileLayout())) {
+          headerEl.classList.remove("toolbar-collapsed");
+          return;
+        }
+        const t = scroller.scrollTop;
+        const delta = t - lastTop;
+        if (t <= 8) {
+          headerEl.classList.remove("toolbar-collapsed");
+        } else if (delta > 6 && t > 60) {
+          headerEl.classList.add("toolbar-collapsed");
+        } else if (delta < -6) {
+          headerEl.classList.remove("toolbar-collapsed");
+        }
+        lastTop = t;
+      }, { passive: true });
+    }
   } catch {}
 
   // 左メニュー幅のドラッグ変更
