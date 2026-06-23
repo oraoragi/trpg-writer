@@ -829,6 +829,18 @@
       background: var(--accent-soft); color: var(--text-main); white-space:nowrap;
     }
     .scene-done-btn:hover { background: rgba(var(--c-teal-rgb),0.22); }
+    .scene-skip-btn {
+      font-size:12px; font-weight:700; line-height:1; cursor:pointer;
+      padding:5px 10px; border-radius:999px; border:1px solid rgba(var(--c-navy-rgb),0.30);
+      background: rgba(var(--c-navy-rgb),0.05); color: var(--text-muted); white-space:nowrap;
+    }
+    .scene-skip-btn:hover { background: rgba(var(--c-navy-rgb),0.12); }
+    .view-reset-btn {
+      font-size:12px; font-weight:600; cursor:pointer; margin-left:8px;
+      padding:6px 12px; border-radius:999px; border:1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.12); color:#fff; white-space:nowrap;
+    }
+    .view-reset-btn:hover { background: rgba(255,255,255,0.22); }
 
     @keyframes flash { 0% { background: #86efac; } 100% { background: #f0fdf4; } }
 
@@ -7800,6 +7812,25 @@ function setupViewCopyHandler() {
         return;
       }
 
+      // 1タップ「スキップ」：シーンをスキップにして隠す
+      const skipBtn = e.target.closest && e.target.closest('.scene-skip-btn');
+      if (skipBtn) {
+        e.preventDefault(); e.stopPropagation();
+        const sceneId = skipBtn.getAttribute('data-scene-skip');
+        const s = getCurrentScenario();
+        if (!s || !sceneId) return;
+        normalizeScenarioData(s);
+        for (const ch of (s.chapters || [])) {
+          const sc = (ch.scenes || []).find(x => x.id === sceneId);
+          if (sc) { sc.status = "skipped"; break; }
+        }
+        s.updatedAt = Date.now();
+        saveApp();
+        renderEditor();
+        try { showToast("スキップにしました"); } catch {}
+        return;
+      }
+
       // Image click (view mode): open modal with original size
       const item = e.target.closest && e.target.closest('.view-content .img-gallery .gallery-item');
       if (item) {
@@ -7927,18 +7958,28 @@ function setupViewCopyHandler() {
       // Ensure we are in view mode area
       if (!box.closest('.view-content')) return;
 
-      // Copy only the text content inside the box (preserve <br> as \n)
-      const clone = box.cloneNode(true);
-      clone.querySelectorAll('.copybox-remove').forEach(el => el.remove());
-      clone.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode('\n')));
+      // 隣接する copy-box（＝見た目上ひとつのボックス）をまとめて対象にする
+      const group = [box];
+      let prev = box.previousElementSibling;
+      while (prev && prev.classList && prev.classList.contains('copy-box')) { group.unshift(prev); prev = prev.previousElementSibling; }
+      let next = box.nextElementSibling;
+      while (next && next.classList && next.classList.contains('copy-box')) { group.push(next); next = next.nextElementSibling; }
 
-      const text = String(clone.textContent || '').replace(/[ \t]+$/,'').replace(/\n+$/,'');
+      const parts = group.map(el => {
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll('.copybox-remove').forEach(n => n.remove());
+        clone.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode('\n')));
+        return String(clone.textContent || '').replace(/[ \t]+$/, '');
+      });
+      const text = parts.join('\n').replace(/\n+$/, '');
       if (!text) return;
 
-const ok = await copyTextToClipboard(text);
+      const ok = await copyTextToClipboard(text);
       if (ok) {
-        box.classList.add('copy-flash');
-        setTimeout(() => box.classList.remove('copy-flash'), 450);
+        group.forEach(el => {
+          el.classList.add('copy-flash');
+          setTimeout(() => el.classList.remove('copy-flash'), 450);
+        });
         showToast("コピーしました！");
       } else {
         showToast("コピーに失敗しました（ブラウザ設定をご確認ください）");
@@ -8903,6 +8944,28 @@ dom.scenarioTitle.value = s.title;
       kpToggle.classList.toggle("kp-off", isHidden);
     };
     paperHead.appendChild(kpToggle);
+
+    // 進行リセット：完了済み・スキップを含む全シーンを未使用に戻す
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "view-reset-btn";
+    resetBtn.textContent = "🔄 全シーンを未使用に戻す";
+    resetBtn.title = "完了・スキップにしたシーンをすべて未使用へ戻します（新しいセッション用）";
+    resetBtn.onclick = () => {
+      const cur = getCurrentScenario();
+      if (!cur) return;
+      const changed = (cur.chapters || []).reduce((n, ch) =>
+        n + (ch.scenes || []).filter(sc => sc.status !== "unused").length, 0);
+      if (changed === 0) { try { showToast("戻すシーンはありません"); } catch {} return; }
+      if (!confirm(`完了・スキップにした ${changed} シーンをすべて未使用に戻しますか？`)) return;
+      (cur.chapters || []).forEach(ch => (ch.scenes || []).forEach(sc => { sc.status = "unused"; }));
+      cur.updatedAt = Date.now();
+      saveApp();
+      renderEditor();
+      try { showToast("全シーンを未使用に戻しました"); } catch {}
+    };
+    paperHead.appendChild(resetBtn);
+
     dom.paperContent.appendChild(paperHead);
 
     const body = document.createElement("div");
@@ -8937,13 +9000,10 @@ dom.scenarioTitle.value = s.title;
       const statusLabel = SCENE_STATUS[sc.status]?.label || "";
       const tagsHtml = (sc.tags || []).slice(0, 8).map(t => `<span class="tag-chip">${escapeHtml(t)}</span>`).join("");
 
-      // Status is editable in View mode (select). "使用済" status itself is not displayed as a badge.
+      // View mode: 完了 / スキップ ボタンで状態を変更（プルダウンは廃止）
       const statusSelectHtml = `
         <button class="scene-done-btn" data-scene-done="${escapeHtml(sc.id)}" title="このシーンを使用済みにして隠す">✓ 完了</button>
-        <select class="scene-status-select" data-scene-id="${escapeHtml(sc.id)}" title="ステータス">
-          <option value="unused" ${sc.status === "unused" ? "selected" : ""}>未使用</option>
-          <option value="used" ${sc.status === "used" ? "selected" : ""}>使用済</option>
-          <option value="skipped" ${sc.status === "skipped" ? "selected" : ""}>スキップ</option>        </select>
+        <button class="scene-skip-btn" data-scene-skip="${escapeHtml(sc.id)}" title="このシーンをスキップにして隠す">⏭ スキップ</button>
       `;
       const badgeHtml = "";
       scDiv.innerHTML = `
