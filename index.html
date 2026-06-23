@@ -7925,15 +7925,17 @@ function setupViewCopyHandler() {
         e.preventDefault(); e.stopPropagation();
         const name = ccfLine.getAttribute('data-ccfolia-name') || '';
         // 同名で連続するccfolia-lineを全て集める
-        let lines = [];
+        const group = [];
         let el = ccfLine;
         // まず先頭まで遡る
         while (el.previousElementSibling && el.previousElementSibling.classList.contains('ccfolia-line') &&
                el.previousElementSibling.getAttribute('data-ccfolia-name') === name) {
           el = el.previousElementSibling;
         }
-        // 先頭から順にテキスト収集
+        // 先頭から順に要素とテキストを収集
+        const lines = [];
         while (el && el.classList.contains('ccfolia-line') && el.getAttribute('data-ccfolia-name') === name) {
+          group.push(el);
           lines.push(String(el.textContent || '').replace(/\s+$/, ''));
           el = el.nextElementSibling;
         }
@@ -7941,9 +7943,10 @@ function setupViewCopyHandler() {
         if (!text) return;
         const ok = await copyTextToClipboard(text);
         if (ok) {
-          ccfLine.style.transition = 'background .15s';
-          ccfLine.style.background = 'rgba(156,163,175,0.15)';
-          setTimeout(() => { ccfLine.style.background = ''; }, 400);
+          group.forEach(g => {
+            g.classList.add('copy-flash');
+            setTimeout(() => g.classList.remove('copy-flash'), 450);
+          });
           showToast("コピーしました！");
         } else {
           showToast("コピーに失敗しました（ブラウザ設定をご確認ください）");
