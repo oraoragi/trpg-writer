@@ -2788,6 +2788,7 @@ body.kp-panel-open #btnKpPanelToggle{
 <span class="char-count" id="charCount" title="現在の章の文字数">0 字</span>
 <button class="ghost" id="btnSearch" title="検索（Ctrl+F）">検索</button>
 <button class="primary" id="btnManualSave" type="button" title="保存（Ctrl+S）" style="font-size:13px; padding:7px 14px;">💾 保存</button>
+<button class="ghost icon-btn" id="btnExportCcfolia" type="button" title="ココフォリアZIP出力（シーンマーカー）" aria-label="ココフォリアZIP出力" style="font-size:16px;">🎬</button>
 <button class="ghost icon-btn" id="btnExportScenario" type="button" title="JSON書き出し（このシナリオ）" aria-label="JSON書き出し（このシナリオ）">
 <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -4883,6 +4884,148 @@ function createKpMemoAtSelection(q){
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  /**
+   * ココフォリア用ZIPエクスポート
+   * シーンマーカー（.ccfolia-line）を収集し、__data.json入りZIPを生成する。
+   * 同名マーカーは1つのココフォリアシーンに統合（グループフラッシュと同じ扱い）。
+   */
+  function collectCcfoliaScenes(s) {
+    const groups = [];
+    const byName = new Map();
+    const NBSP_PH = '\uFFF9', IDESP_PH = '\uFFFA';
+    (s.chapters || []).forEach(ch => {
+      (ch.scenes || []).forEach(sc => {
+        if (!sc || !sc.body) return;
+        const div = document.createElement("div");
+        div.innerHTML = String(sc.body)
+          .replace(/&nbsp;/g, NBSP_PH); // &nbsp;実体参照を保護
+        div.querySelectorAll(".ccfolia-line").forEach(line => {
+          const name = (line.getAttribute("data-ccfolia-name") || "").trim() || "無題シーン";
+          const text = (line.textContent || "")
+            .replace(new RegExp(NBSP_PH, 'g'), '\u00A0')
+            .replace(new RegExp(IDESP_PH, 'g'), '\u3000');
+          if (byName.has(name)) {
+            byName.get(name).lines.push(text);
+          } else {
+            const g = { name, lines: [text] };
+            byName.set(name, g);
+            groups.push(g);
+          }
+        });
+      });
+    });
+    return groups;
+  }
+
+  function randomCcfoliaId(len = 20) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let out = "";
+    const buf = new Uint8Array(len);
+    (window.crypto || {}).getRandomValues ? crypto.getRandomValues(buf) : buf.forEach((_, i) => buf[i] = Math.floor(Math.random() * 256));
+    for (let i = 0; i < len; i++) out += chars[buf[i] % chars.length];
+    return out;
+  }
+
+  // 無圧縮(stored)ZIP生成（依存ライブラリなし）
+  const __crcTable = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(bytes) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = __crcTable[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function buildStoredZip(files) {
+    // files: [{ name: string, data: Uint8Array }]
+    const enc = new TextEncoder();
+    const chunks = [];
+    const central = [];
+    let offset = 0;
+    const u16 = v => new Uint8Array([v & 0xFF, (v >>> 8) & 0xFF]);
+    const u32 = v => new Uint8Array([v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF]);
+    files.forEach(f => {
+      const nameB = enc.encode(f.name);
+      const crc = crc32(f.data);
+      const size = f.data.length;
+      // Local file header
+      const local = [
+        u32(0x04034b50), u16(20), u16(0x0800) /* UTF-8 flag */, u16(0) /* stored */,
+        u16(0), u16(0) /* time/date */, u32(crc), u32(size), u32(size),
+        u16(nameB.length), u16(0)
+      ];
+      const localLen = local.reduce((a, b) => a + b.length, 0) + nameB.length + size;
+      local.forEach(b => chunks.push(b));
+      chunks.push(nameB, f.data);
+      // Central directory entry
+      central.push({ nameB, crc, size, offset });
+      offset += localLen;
+    });
+    const cdStart = offset;
+    let cdSize = 0;
+    central.forEach(e => {
+      const rec = [
+        u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0),
+        u16(0), u16(0), u32(e.crc), u32(e.size), u32(e.size),
+        u16(e.nameB.length), u16(0), u16(0), u16(0), u16(0),
+        u32(0), u32(e.offset)
+      ];
+      rec.forEach(b => chunks.push(b));
+      chunks.push(e.nameB);
+      cdSize += rec.reduce((a, b) => a + b.length, 0) + e.nameB.length;
+    });
+    const eocd = [
+      u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+      u32(cdSize), u32(cdStart), u16(0)
+    ];
+    eocd.forEach(b => chunks.push(b));
+    const total = chunks.reduce((a, b) => a + b.length, 0);
+    const out = new Uint8Array(total);
+    let p = 0;
+    chunks.forEach(b => { out.set(b, p); p += b.length; });
+    return out;
+  }
+
+  function exportCcfoliaZip() {
+    const s = getCurrentScenario();
+    if (!s) { alert("出力するシナリオがありません。"); return; }
+    const groups = collectCcfoliaScenes(s);
+    if (!groups.length) {
+      showToast("シーンマーカー（🎬）が見つかりません");
+      return;
+    }
+    const scenes = {};
+    groups.forEach((g, i) => {
+      scenes[randomCcfoliaId()] = {
+        name: g.name,
+        text: g.lines.join("\n"),
+        order: i,
+        locked: false
+      };
+    });
+    const data = {
+      meta: { version: "1.1.0" },
+      entities: { scenes }
+    };
+    const jsonBytes = new TextEncoder().encode(JSON.stringify(data));
+    const zipBytes = buildStoredZip([{ name: "__data.json", data: jsonBytes }]);
+    const blob = new Blob([zipBytes], { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(s.title || "scenario")}_ccfolia.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`ココフォリア用ZIPを出力しました（${groups.length}シーン）`);
+  }
+
   function exportAllAsJSON() {
     normalizeAppData();
     const payload = {
@@ -5900,6 +6043,7 @@ Quill.register(KpNoteBlockEmbed, true);
     btnExportAllHome: document.getElementById("btnExportAllHome"),
     btnImportHome: document.getElementById("btnImportHome"),
     btnExportScenario: document.getElementById("btnExportScenario"),
+    btnExportCcfolia: document.getElementById("btnExportCcfolia"),
     btnSearch: document.getElementById("btnSearch"),
     btnSearchClose: document.getElementById("btnSearchClose"),
     searchInput: document.getElementById("searchInput"),
@@ -6035,7 +6179,18 @@ function readFiles(files) {
       r.readAsDataURL(file);
     });
 
-    const downscale = (dataUrl) => new Promise(resolve => {
+    // 透過ピクセルを含むか判定（縮小描画後のcanvasを走査）
+    const hasTransparency = (ctx, cw, ch) => {
+      try {
+        const data = ctx.getImageData(0, 0, cw, ch).data;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] < 255) return true;
+        }
+      } catch {}
+      return false;
+    };
+
+    const downscale = (dataUrl, isPng) => new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
         try {
@@ -6048,11 +6203,13 @@ function readFiles(files) {
           const canvas = document.createElement('canvas');
           canvas.width = cw;
           canvas.height = ch;
-          const ctx = canvas.getContext('2d', { alpha: false });
+          const ctx = canvas.getContext('2d'); // alpha有効で描画
           ctx.drawImage(img, 0, 0, cw, ch);
 
-          // Use JPEG to reduce size; if transparency is needed, users can reinsert PNG via smaller assets.
-          const out = canvas.toDataURL('image/jpeg', quality);
+          // 透過PNGは透過を保持するためPNG出力、それ以外はJPEGでサイズ削減
+          const out = (isPng && hasTransparency(ctx, cw, ch))
+            ? canvas.toDataURL('image/png')
+            : canvas.toDataURL('image/jpeg', quality);
           resolve(out);
         } catch {
           resolve(dataUrl);
@@ -6065,7 +6222,8 @@ function readFiles(files) {
     const imgs = Array.from(files || []).filter(f => f && f.type && f.type.startsWith("image/"));
     return Promise.all(imgs.map(async (f) => {
       const raw = await toDataURL(f);
-      return await downscale(raw);
+      const isPng = /png|webp|gif/i.test(f.type || '');
+      return await downscale(raw, isPng);
     }));
   }
 
@@ -6792,7 +6950,11 @@ function createQuill(container, content, isView, onContentChange) {
     try {
       const Delta = Quill.import('delta');
       q.clipboard.addMatcher('P', (node, delta) => {
-        // <p>の内容をそのまま返し、末尾に改行1つ追加（段落間に空行を入れない）
+        // <p>の内容をそのまま返し、後続要素がある場合のみ末尾に改行1つ追加（段落間に空行を入れない）
+        // 最後の<p>に改行を付けると、1段落だけのペーストでカーソル位置の行が割れてしまう
+        let next = node.nextSibling;
+        while (next && next.nodeType === 3 && !(next.nodeValue || '').trim()) next = next.nextSibling;
+        if (!next) return delta;
         return delta.compose(new Delta().retain(delta.length()).insert('\n'));
       });
     } catch {}
@@ -6804,13 +6966,37 @@ function createQuill(container, content, isView, onContentChange) {
           const range = q.getSelection();
           if (!range) return;
           const fmt = q.getFormat(range.index) || {};
+
+          // --- ココフォリアマーカー行内へのペースト：全行にマーカーを引き継ぐ ---
+          if (fmt.ccfolia && !fmt.copybox) {
+            e.preventDefault();
+            e.stopPropagation();
+            const raw = e.clipboardData && e.clipboardData.getData('text/plain');
+            if (!raw) return;
+            const text = raw.replace(/\r\n?/g, '\n');
+            const Delta = Quill.import('delta');
+            let d = new Delta().retain(range.index);
+            if (range.length > 0) d = d.delete(range.length);
+            const lines = text.split('\n');
+            while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+            let contentLen = 0;
+            for (let i = 0; i < lines.length; i++) {
+              if (lines[i]) { d = d.insert(lines[i]); contentLen += lines[i].length; }
+              if (i < lines.length - 1) { d = d.insert('\n', { ccfolia: fmt.ccfolia }); contentLen += 1; }
+            }
+            q.updateContents(d, 'user');
+            q.setSelection(range.index + contentLen, 0, 'silent');
+            return;
+          }
+
           if (!fmt.copybox) return;
 
           e.preventDefault();
           e.stopPropagation();
 
-          const text = e.clipboardData && e.clipboardData.getData('text/plain');
-          if (!text) return;
+          const rawText = e.clipboardData && e.clipboardData.getData('text/plain');
+          if (!rawText) return;
+          const text = rawText.replace(/\r\n?/g, '\n');  // Windowsクリップボードの\r混入を除去
 
           // Delta一発構築: retain → delete(選択分) → テキスト+softbreak挿入
           const Delta = Quill.import('delta');
@@ -6828,7 +7014,7 @@ function createQuill(container, content, isView, onContentChange) {
           }
 
           q.updateContents(d, 'user');
-          q.setSelection(range.index - (range.length > 0 ? 0 : 0) + contentLen, 0, 'silent');
+          q.setSelection(range.index + contentLen, 0, 'silent');
         } catch {}
       }, true);
     } catch {}
@@ -6886,9 +7072,11 @@ function createQuill(container, content, isView, onContentChange) {
       let _snapPending = false;
       let _snapLastHtml = null;
       let _suppressSnap = false;
+      let _snapTimer = null;
+      let _isComposing = false;
 
       const takeSnapshot = () => {
-        if (_suppressSnap) return;
+        if (_suppressSnap || _isComposing) return;
         const html = getHtmlForSave();
         if (html === _snapLastHtml) return;  // 変化がなければ積まない
         _snapLastHtml = html;
@@ -6898,18 +7086,34 @@ function createQuill(container, content, isView, onContentChange) {
         redoStack.length = 0;  // 新操作でredoをクリア
       };
 
+      // デバウンス予約：連続入力を1つのundo単位にまとめ、大きな文書での毎打鍵シリアライズを防ぐ
       const scheduleSnapshot = () => {
-        if (_snapPending) return;
-        _snapPending = true;
-        // 操作完了後（microtask後）に撮影
-        Promise.resolve().then(() => {
-          _snapPending = false;
+        if (_suppressSnap) return;
+        if (_snapTimer) clearTimeout(_snapTimer);
+        _snapTimer = setTimeout(() => {
+          _snapTimer = null;
           takeSnapshot();
-        });
+        }, 300);
       };
+
+      // 保留中スナップショットを即時確定（undo/redo/blur時）
+      const flushSnapshot = () => {
+        if (_snapTimer) { clearTimeout(_snapTimer); _snapTimer = null; }
+        takeSnapshot();
+      };
+
+      // IME変換中は未確定文字列を積まない。確定後にまとめて撮影
+      try {
+        q.root.addEventListener('compositionstart', () => { _isComposing = true; });
+        q.root.addEventListener('compositionend', () => {
+          _isComposing = false;
+          scheduleSnapshot();
+        });
+      } catch {}
 
       const restoreSnapshot = (snap) => {
         if (!snap) return;
+        if (_snapTimer) { clearTimeout(_snapTimer); _snapTimer = null; }  // 古い予約を破棄
         _suppressSnap = true;
         try {
           const NBSP_PH = '\uFFF9';
@@ -6937,39 +7141,56 @@ function createQuill(container, content, isView, onContentChange) {
         _suppressSnap = false;
       };
 
-      // 初期スナップショット（空状態）
-      setTimeout(() => { _snapLastHtml = getHtmlForSave(); }, 0);
+      // 初期スナップショット：読み込み済みコンテンツをスタック底（基底状態）として積む
+      setTimeout(() => {
+        _snapLastHtml = getHtmlForSave();
+        if (undoStack.length === 0) {
+          undoStack.push({ html: _snapLastHtml, selIndex: 0, selLength: 0 });
+        }
+      }, 0);
 
       // text-changeで操作後にスナップショット予約
       q.on('text-change', () => {
         scheduleSnapshot();
       });
 
-      // undo: 現在状態をredoスタックに積んでundoスタックから復元
+      // 不変条件：undoStackの先頭（末尾要素）は常に「現在のドキュメント状態」と一致させる
+      // undo: 先頭をredoへ移し、新しい先頭を復元
       q.__trpgUndo = () => {
-        takeSnapshot();  // 現在を確定
-        if (undoStack.length === 0) return;
-        const current = undoStack.pop();
-        redoStack.push(current);
-        const target = undoStack[undoStack.length - 1];
-        if (!target) {
-          // スタックが空 = 初期状態に戻す
-          _suppressSnap = true;
-          q.setText('');
-          _suppressSnap = false;
-          _snapLastHtml = getHtmlForSave();
-          return;
-        }
+        flushSnapshot();  // 保留中の編集を確定
+        // スタック底は基底状態（シーン読み込み時の内容）。それ以前へは戻れない
+        if (undoStack.length <= 1) return;
+        redoStack.push(undoStack.pop());
+        restoreSnapshot(undoStack[undoStack.length - 1]);
+      };
+
+      // redo: redoから取り出してundoスタックに積み直し、復元
+      q.__trpgRedo = () => {
+        flushSnapshot();  // 未確定編集があれば確定（その場合redoStackはクリアされ、redoは無効になる）
+        if (redoStack.length === 0) return;
+        const target = redoStack.pop();
+        undoStack.push(target);
         restoreSnapshot(target);
       };
 
-      // redo: redoスタックから復元してundoスタックに積む
-      q.__trpgRedo = () => {
-        if (redoStack.length === 0) return;
-        const target = redoStack.pop();
-        takeSnapshot();  // 現在をundoスタックに確定
-        restoreSnapshot(target);
-      };
+      // ブラウザネイティブundo（右クリックメニュー・モバイルキーボード等）を横取りして独自undoに委譲
+      // contenteditableへのネイティブundoはQuill内部状態と食い違いDOM破壊の原因になる
+      try {
+        q.root.addEventListener('beforeinput', (e) => {
+          if (e.inputType !== 'historyUndo' && e.inputType !== 'historyRedo') return;
+          const t = e.target;
+          if (t instanceof HTMLElement && t.closest && t.closest('textarea, input')) return;  // ウィジェット内フォームは素通し
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.inputType === 'historyUndo') { if (q.__trpgUndo) q.__trpgUndo(); }
+          else { if (q.__trpgRedo) q.__trpgRedo(); }
+        }, true);
+      } catch {}
+
+      // フォーカスを外した時点で保留分を確定（シーン切替時の取りこぼし防止）
+      try {
+        q.root.addEventListener('blur', () => { if (!_isComposing) flushSnapshot(); }, true);
+      } catch {}
     }
 
     if (!isView) {
@@ -7340,6 +7561,10 @@ try {
       q.root.addEventListener('keydown', (e) => {
         // IME確定中などは触らない
         if (e.isComposing) return;
+
+        // ウィジェット内のtextarea/input編集中は独自undoを当てない（各フィールドのネイティブundoに任せる）
+        const _tf = e.target;
+        if (_tf instanceof HTMLElement && _tf.closest && _tf.closest('textarea, input, select')) return;
 
         // Ctrl+Z / Ctrl+Y / Cmd+Z / Cmd+Shift+Z → 独自undo/redo
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
@@ -7925,17 +8150,15 @@ function setupViewCopyHandler() {
         e.preventDefault(); e.stopPropagation();
         const name = ccfLine.getAttribute('data-ccfolia-name') || '';
         // 同名で連続するccfolia-lineを全て集める
-        const group = [];
+        let lines = [];
         let el = ccfLine;
         // まず先頭まで遡る
         while (el.previousElementSibling && el.previousElementSibling.classList.contains('ccfolia-line') &&
                el.previousElementSibling.getAttribute('data-ccfolia-name') === name) {
           el = el.previousElementSibling;
         }
-        // 先頭から順に要素とテキストを収集
-        const lines = [];
+        // 先頭から順にテキスト収集
         while (el && el.classList.contains('ccfolia-line') && el.getAttribute('data-ccfolia-name') === name) {
-          group.push(el);
           lines.push(String(el.textContent || '').replace(/\s+$/, ''));
           el = el.nextElementSibling;
         }
@@ -7943,10 +8166,9 @@ function setupViewCopyHandler() {
         if (!text) return;
         const ok = await copyTextToClipboard(text);
         if (ok) {
-          group.forEach(g => {
-            g.classList.add('copy-flash');
-            setTimeout(() => g.classList.remove('copy-flash'), 450);
-          });
+          ccfLine.style.transition = 'background .15s';
+          ccfLine.style.background = 'rgba(156,163,175,0.15)';
+          setTimeout(() => { ccfLine.style.background = ''; }, 400);
           showToast("コピーしました！");
         } else {
           showToast("コピーに失敗しました（ブラウザ設定をご確認ください）");
@@ -9431,6 +9653,7 @@ dom.scenarioTitle.value = s.title;
   try { if (dom.btnExportAllHome) dom.btnExportAllHome.onclick = exportAllAsJSON; } catch {}
   try { if (dom.btnImportHome) dom.btnImportHome.onclick = requestImportJSON; } catch {}
   try { if (dom.btnExportScenario) dom.btnExportScenario.onclick = exportCurrentScenarioAsJSON; } catch {}
+  try { if (dom.btnExportCcfolia) dom.btnExportCcfolia.onclick = exportCcfoliaZip; } catch {}
 try { if (dom.btnSearch) dom.btnSearch.onclick = () => FindBar.open(); } catch {}
   try { if (dom.btnSearchClose) dom.btnSearchClose.onclick = closeSearch; } catch {}
   try { FindBar.bind(); } catch {}
