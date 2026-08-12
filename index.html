@@ -3303,6 +3303,7 @@ let __firebaseUser = null;
 // Debounce for Firestore writes (avoid hammering on every keystroke)
 let __firestoreSaveTimer = null;
 const FIRESTORE_SAVE_DELAY = 800; // ms
+const FIRESTORE_DOC_LIMIT = 1000000; // bytes（実上限1MiBに対し安全側）
 
 function initFirebase() {
   try {
@@ -3346,6 +3347,17 @@ function createFirestoreAdapter(userId) {
           try {
             updateSyncUI("syncing");
             const payload = JSON.stringify(value);
+
+            // Firestoreは1ドキュメント約1MiBが上限。超過分は書き込みが丸ごと失敗するため事前に検知する。
+            const bytes = new Blob([payload]).size;
+            if (bytes > FIRESTORE_DOC_LIMIT) {
+              updateSyncUI("error");
+              reject(new Error(
+                `クラウド保存の上限超過（${Math.round(bytes / 1024)}KB / 上限約1000KB）。画像を減らすか小さくしてください。`
+              ));
+              return;
+            }
+
             await docRef.set({
               payload,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3364,34 +3376,32 @@ function createFirestoreAdapter(userId) {
   };
 }
 
-// Dual-write adapter: saves to both Firestore AND local IndexedDB/localStorage
-// Loads prefer Firestore but fall back to local
+// Dual-write adapter: saves to both Firestore AND local IndexedDB
+// オンライン同期前提のため、読み込みは常にFirestoreを正とし、
+// 取得できなかった場合のみローカル控えを使う。
 function createDualAdapter(firestoreAdapter, localAdapter) {
+  const isValid = (v) => v && typeof v === "object" && Array.isArray(v.scenarios);
   return {
     name: "firestore+local",
     async load(key) {
       let remote = null;
-      let local = null;
       try { remote = await asPromise(firestoreAdapter.load(key)); } catch {}
+      if (isValid(remote)) return remote;
+
+      let local = null;
       try { local = await asPromise(localAdapter.load(key)); } catch {}
-
-      const isValid = (v) => v && typeof v === "object" && Array.isArray(v.scenarios);
-      const score = (v) => {
-        if (!isValid(v)) return -1;
-        let s = (v.scenarios && v.scenarios.length) ? 10 + v.scenarios.length : 0;
-        let newest = 0;
-        try { for (const sc of (v.scenarios || [])) newest = Math.max(newest, Number(sc && sc.updatedAt || 0)); } catch {}
-        return s + newest / 1e12;
-      };
-
-      // Pick the freshest data
-      if (score(remote) >= score(local)) return remote;
-      return local;
+      return isValid(local) ? local : null;
     },
     async save(key, value) {
-      // Write to both (local first for speed, then remote)
-      try { await asPromise(localAdapter.save(key, value)); } catch {}
-      try { await asPromise(firestoreAdapter.save(key, value)); } catch {}
+      // ローカル控えを先に書く（失敗してもクラウド保存は続行する）
+      try {
+        await asPromise(localAdapter.save(key, value));
+      } catch (err) {
+        try { console.warn("local mirror save failed:", err); } catch {}
+      }
+      // クラウド保存の失敗は握りつぶさず呼び出し元へ伝える（保存失敗の隠蔽を防止）
+      await asPromise(firestoreAdapter.save(key, value));
+      return true;
     }
   };
 }
@@ -3505,23 +3515,12 @@ async function onAuthStateChanged(user) {
       let loaded = null;
       try { loaded = await asPromise(localAdapter.load(STORAGE_KEY)); } catch {}
 
-      // フォールバック: localStorage直接読み込み
-      if (!loaded || !Array.isArray(loaded.scenarios)) {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) loaded = JSON.parse(raw);
-        } catch {}
-      }
-
-      if (loaded && typeof loaded === "object" && Array.isArray(loaded.scenarios)) {
-        const scoreApp = (v) => {
-          if (!v || !Array.isArray(v.scenarios)) return -1;
-          let newest = 0;
-          try { for (const sc of v.scenarios) newest = Math.max(newest, Number((sc && sc.updatedAt) || 0)); } catch {}
-          const stamp = Math.max(Number(v.savedAt || 0), newest);
-          return stamp * 1000 + Math.min(999, v.scenarios.length);
-        };
-        if (scoreApp(loaded) > scoreApp(app)) {
+      // 現在のメモリ上が空で、ローカルに実データがある場合のみ差し替える
+      if (loaded && typeof loaded === "object" && Array.isArray(loaded.scenarios) && loaded.scenarios.length) {
+        const curCount = (app && Array.isArray(app.scenarios)) ? app.scenarios.length : 0;
+        const curStamp = Number((app && app.savedAt) || 0);
+        const newStamp = Number(loaded.savedAt || 0);
+        if (curCount === 0 || newStamp > curStamp) {
           app = loaded;
           normalizeAppData();
           app.currentScenarioId = null;
@@ -3569,71 +3568,33 @@ async function initApp() {
   updateStickyOffsets();
   // (Skill widget copy is handled per editor instance)
 
-  // Choose adapter (best effort): IndexedDB -> localStorage
-  // Note: file:// can be fickle. We try BOTH (IndexedDB and localStorage) and pick the best payload
-  // to avoid "saved but not restored" edge cases.
+  // ローカル控えの読み込み。オンライン同期が主経路のため、ここはFirestore到着までの
+  // 高速な初回描画用。IndexedDBを正とし、無い場合のみ旧localStorageデータを救済する。
   const idbAdapter = (typeof indexedDB !== "undefined") ? createIndexedDBAdapter() : null;
   const lsAdapter = createLocalStorageAdapter();
+  const isValidApp = (v) => v && typeof v === "object" && Array.isArray(v.scenarios);
 
-  let loadedIdb = null;
-  let loadedLs = null;
+  let loaded = null;
 
-  // Try IndexedDB first (if available)
   if (idbAdapter) {
     try {
-      loadedIdb = await asPromise(idbAdapter.load(STORAGE_KEY));
+      loaded = await asPromise(idbAdapter.load(STORAGE_KEY));
     } catch (err) {
       try { console.warn("initApp IndexedDB load failed:", err); } catch {}
-      loadedIdb = null;
+      loaded = null;
     }
   }
 
-  // Always try localStorage as a secondary recovery source
-  try {
-    loadedLs = await asPromise(lsAdapter.load(STORAGE_KEY));
-  } catch (err) {
-    try { console.warn("initApp localStorage load failed:", err); } catch {}
-    loadedLs = null;
-  }
-
-  // ★ localStorage直接読み込み（アダプタ経由で失敗するケースの最終フォールバック）
-  if (!loadedLs) {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) loadedLs = JSON.parse(raw);
-    } catch {}
-  }
-
-  // Pick best payload
-  const isValidApp = (v) => v && typeof v === "object" && Array.isArray(v.scenarios);
-  // 「シナリオ本数が多い方を採用」だと、削除したシナリオを持つ古いバックアップが
-  // 新しいデータに勝ってしまい、削除復活・編集巻き戻りが起きる。
-  // 保存時刻（savedAt / 最新updatedAt）を最優先し、同時刻の場合のみ本数で決着させる。
-  const scoreApp = (v) => {
-    if (!isValidApp(v)) return -1;
-    let newest = 0;
-    try {
-      for (const s of (v.scenarios || [])) newest = Math.max(newest, Number((s && s.updatedAt) || 0));
-    } catch {}
-    const stamp = Math.max(Number(v.savedAt || 0), newest);
-    return stamp * 1000 + Math.min(999, (v.scenarios || []).length);
-  };
-
-  const sIdb = scoreApp(loadedIdb);
-  const sLs  = scoreApp(loadedLs);
-
-  let loaded = null;
-  if (sIdb >= sLs) {
-    loaded = loadedIdb;
-    __storageAdapter = idbAdapter || lsAdapter;
+  if (isValidApp(loaded)) {
+    __storageAdapter = idbAdapter;
   } else {
-    loaded = loadedLs;
-    __storageAdapter = lsAdapter;
+    // IndexedDBが空/使用不可の場合のみ、旧localStorageデータを読む
+    try { loaded = await asPromise(lsAdapter.load(STORAGE_KEY)); } catch { loaded = null; }
+    __storageAdapter = idbAdapter || lsAdapter;
   }
 
-  // If IndexedDB is blocked but localStorage has data, we continue with localStorage.
-  // If both are empty, we fall back to defaults (and do NOT save immediately).
-  app = (loaded && typeof loaded === "object") ? loaded : deepClone(DEFAULT_APP);
+  // どちらも空なら初期状態から始める（この時点では保存しない）
+  app = isValidApp(loaded) ? loaded : deepClone(DEFAULT_APP);
   normalizeAppData();
 
   // Mark hydration complete (safe to persist changes).
@@ -3700,19 +3661,23 @@ function saveApp() {
   // 保存時刻を記録（起動時にどちらのストレージが新しいか判定するため）
   try { app.savedAt = Date.now(); } catch {}
 
-  let backupOk = false;
+
   const onOk = () => {
     __hasDirtyChanges = false;
     if (status) {
-      status.textContent = backupOk ? "保存済み" : "保存済み（予備保存なし）";
+      status.textContent = "保存済み";
       setTimeout(() => { try { if (!__hasDirtyChanges) status.textContent = ""; } catch {} }, 2000);
     }
     try { scheduleCharCountUpdate(); } catch {}
   };
 
   const onFail = (err) => {
-    if (status) status.textContent = "保存失敗（容量/権限の可能性）";
+    const msg = String((err && err.message) || "");
+    if (status) {
+      status.textContent = /上限超過/.test(msg) ? "保存失敗: 容量超過" : "保存失敗（容量/権限/通信）";
+    }
     try { console.warn("saveApp failed:", err); } catch {}
+    try { if (msg) showToast(msg); } catch {}
 
     // 容量超過時はメモリへ退避してUIを止めない（アダプタ種別を問わない）
     if (__storageAdapter && __storageAdapter.name !== "memory" && isQuotaExceededError(err)) {
@@ -3728,21 +3693,6 @@ function saveApp() {
 
   try {
     if (status) status.textContent = "保存中…";
-
-    // ★ 常にlocalStorageにもバックアップ保存（IndexedDB障害やアダプタ切替時のデータ損失を防止）
-    // プライマリより先に書き、成否をUIに反映する（黙って古いバックアップが残るのを防ぐ）
-    if (__storageAdapter && __storageAdapter.name !== "localStorage") {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(app));
-        backupOk = true;
-      } catch (e) {
-        backupOk = false;
-        try { console.warn("localStorage backup failed:", e); } catch {}
-      }
-    } else {
-      backupOk = true;
-    }
-
     const r = __storageAdapter.save(STORAGE_KEY, app);
     asPromise(r).then(onOk).catch(onFail);
   } catch (err) {
