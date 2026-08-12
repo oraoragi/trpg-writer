@@ -3382,7 +3382,29 @@ function putImage(dataUrl) {
   __imageCache.set(id, dataUrl);
   __imageByData.set(dataUrl, id);
   __imageDirty.add(id);
+
+  // 保存前にタブを閉じても失われないよう、ローカルへ即時退避する。
+  // （本文には参照だけが残るため、実データを失うと画像が復元できなくなる）
+  try { schedulePersistImagesLocally(); } catch {}
+
   return IMAGE_REF_PREFIX + id;
+}
+
+// ローカルへの画像退避（短時間に複数枚追加されるためまとめて書く）
+let __persistImagesTimer = null;
+function schedulePersistImagesLocally() {
+  if (!__localAdapterRef) return;
+  if (__persistImagesTimer) clearTimeout(__persistImagesTimer);
+  __persistImagesTimer = setTimeout(async () => {
+    __persistImagesTimer = null;
+    try {
+      const map = {};
+      __imageCache.forEach((v, k) => { map[k] = v; });
+      await asPromise(__localAdapterRef.save(IMAGES_LOCAL_KEY, map));
+    } catch (err) {
+      try { console.warn("local image persist failed:", err); } catch {}
+    }
+  }, 400);
 }
 
 // 参照を実データに解決（未ロードならプレースホルダ）
@@ -3400,19 +3422,22 @@ function collectImageIds(text, out) {
   return out;
 }
 
-// シナリオ1件が参照している画像IDを集める
+// シナリオ1件が参照している画像IDを集める。
+// 特定フィールドだけを見ると、将来フィールドが増えたときに取りこぼし、
+// 参照中の画像を未使用と誤判定して削除してしまう。そのため全体を走査する。
 function scenarioImageIds(sc, out) {
   out = out || new Set();
   if (!sc) return out;
   try {
-    const chapters = Array.isArray(sc.chapters) ? sc.chapters : [];
-    for (const ch of chapters) {
-      const scenes = (ch && Array.isArray(ch.scenes)) ? ch.scenes : [];
-      for (const scene of scenes) collectImageIds(scene && scene.body, out);
-    }
-    // 念のため、構造外に残った参照も拾う
-    collectImageIds(JSON.stringify(sc.kpNotes || null), out);
-  } catch {}
+    collectImageIds(JSON.stringify(sc), out);
+  } catch {
+    // 循環参照などでstringifyできない場合は既知のフィールドだけでも拾う
+    try {
+      for (const ch of (sc.chapters || [])) {
+        for (const scene of ((ch && ch.scenes) || [])) collectImageIds(scene && scene.body, out);
+      }
+    } catch {}
+  }
   return out;
 }
 
@@ -3580,12 +3605,19 @@ function migrateInlineImages() {
 
   try {
     for (const sc of (app && app.scenarios) || []) {
-      for (const ch of (sc && sc.chapters) || []) {
-        for (const scene of (ch && ch.scenes) || []) {
+      if (!sc) continue;
+      for (const ch of (sc.chapters) || []) {
+        for (const scene of ((ch && ch.scenes) || [])) {
           if (!scene) continue;
           const next = convert(scene.body);
           if (next !== scene.body) scene.body = next;
         }
+      }
+      // KPメモ本文にも画像が入りうる
+      for (const memo of (sc.kpMemos) || []) {
+        if (!memo || typeof memo.body !== "string") continue;
+        const next = convert(memo.body);
+        if (next !== memo.body) memo.body = next;
       }
     }
   } catch (err) {
