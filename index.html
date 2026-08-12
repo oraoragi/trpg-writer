@@ -3325,29 +3325,38 @@ function formatBytes(n) {
   return (n / 1024 / 1024).toFixed(2) + "MB";
 }
 
-function measureAppBytes() {
+// 上限はシナリオ1件ごとに掛かるため、最大のシナリオを監視対象にする
+function measureLargestScenario() {
+  let max = 0, title = "", total = 0;
   try {
-    return new Blob([JSON.stringify(app)]).size;
-  } catch {
-    return 0;
-  }
+    const list = (app && Array.isArray(app.scenarios)) ? app.scenarios : [];
+    for (const sc of list) {
+      if (!sc) continue;
+      const b = new Blob([JSON.stringify(sc)]).size;
+      total += b;
+      if (b > max) { max = b; title = sc.title || "（無題）"; }
+    }
+  } catch {}
+  return { max, title, total, count: (app && Array.isArray(app.scenarios)) ? app.scenarios.length : 0 };
 }
 
 function updateDocSizeUI() {
   const el = document.getElementById("docSize");
   if (!el) return;
-  const bytes = measureAppBytes();
-  const pct = Math.round((bytes / FIRESTORE_DOC_LIMIT) * 100);
-  el.textContent = `${formatBytes(bytes)} / 1MB (${pct}%)`;
+  const { max, title, total, count } = measureLargestScenario();
+  const pct = Math.round((max / FIRESTORE_DOC_LIMIT) * 100);
+  el.textContent = `最大 ${formatBytes(max)} / 1MB (${pct}%)`;
   el.classList.remove("warn", "over");
-  if (bytes > FIRESTORE_DOC_LIMIT) {
+
+  const base = `最大シナリオ: ${title}\n全${count}件の合計: ${formatBytes(total)}\n上限はシナリオ1件ごとに約1MBです`;
+  if (max > FIRESTORE_DOC_LIMIT) {
     el.classList.add("over");
-    el.title = "上限超過: このままではクラウド保存に失敗します。画像を減らすか小さくしてください。";
+    el.title = "上限超過: このシナリオはクラウド保存に失敗します。画像を減らすか小さくしてください。\n" + base;
   } else if (pct >= 75) {
     el.classList.add("warn");
-    el.title = "上限が近づいています。画像の追加に注意してください。";
+    el.title = "このシナリオが上限に近づいています。\n" + base;
   } else {
-    el.title = "クラウド保存はドキュメント1件あたり1MiBが上限です";
+    el.title = base;
   }
 }
 
@@ -3373,25 +3382,100 @@ function initFirebase() {
   }
 }
 
+// Firestore構成（v2）:
+//   users/{uid}/data/app_index      … 並び順・選択中ID・保存時刻のみ（軽量）
+//   users/{uid}/scenarios/{id}      … シナリオ1件につき1ドキュメント
+// 1ドキュメント1MiBの上限がシナリオ単位に分散されるため、全体では実質的に上限が無くなる。
+// 旧形式 users/{uid}/data/app_state は移行後も削除せず、復旧用に残す。
 function createFirestoreAdapter(userId) {
   if (!__firebaseDb || !userId) return null;
-  const docRef = __firebaseDb.collection("users").doc(userId).collection("data").doc("app_state");
+  const userRef = __firebaseDb.collection("users").doc(userId);
+  const legacyRef = userRef.collection("data").doc("app_state");
+  const indexRef = userRef.collection("data").doc("app_index");
+  const scenariosRef = userRef.collection("scenarios");
+
+  // 直近にクラウドへ書き込んだ内容（差分書き込み・削除検知に使う）
+  let lastSaved = Object.create(null); // { [id]: payload文字列 }
+  let lastOrder = [];                  // クラウド上に存在するとわかっているID
+
+  const MAX_BATCH_OPS = 400; // Firestoreのバッチ上限500に対し安全側
+
+  async function commitInChunks(writes) {
+    for (let i = 0; i < writes.length; i += MAX_BATCH_OPS) {
+      const batch = __firebaseDb.batch();
+      writes.slice(i, i + MAX_BATCH_OPS).forEach(w => w(batch));
+      await batch.commit();
+    }
+  }
 
   return {
     name: "firestore",
+
     async load(key) {
+      // --- 新形式（v2）を試す ---
+      let indexSnap = null;
+      try { indexSnap = await indexRef.get(); } catch (err) { console.warn("Firestore index load failed:", err); }
+
+      if (indexSnap && indexSnap.exists) {
+        try {
+          const meta = JSON.parse((indexSnap.data() || {}).payload || "{}");
+          const order = Array.isArray(meta.order) ? meta.order.map(String) : [];
+
+          const snap = await scenariosRef.get();
+          const byId = new Map();
+          snap.forEach(d => {
+            try {
+              const sc = JSON.parse((d.data() || {}).payload || "null");
+              if (sc && sc.id) byId.set(String(sc.id), sc);
+            } catch {}
+          });
+
+          // 並び順に載っているものだけを採用する。
+          // 順序外のドキュメントを拾うと、削除したシナリオが復活してしまうため。
+          const scenarios = [];
+          order.forEach(id => { if (byId.has(id)) scenarios.push(byId.get(id)); });
+
+          // 順序外に残った孤児ドキュメントは掃除する（失敗しても致命的ではない）
+          const orphans = [];
+          byId.forEach((_, id) => { if (order.indexOf(id) === -1) orphans.push(id); });
+          if (orphans.length) {
+            commitInChunks(orphans.map(id => (b) => b.delete(scenariosRef.doc(id))))
+              .catch(err => console.warn("orphan cleanup failed:", err));
+          }
+
+          lastSaved = Object.create(null);
+          scenarios.forEach(sc => { try { lastSaved[String(sc.id)] = JSON.stringify(sc); } catch {} });
+          lastOrder = scenarios.map(sc => String(sc.id));
+
+          return {
+            currentScenarioId: meta.currentScenarioId || null,
+            scenarios,
+            savedAt: Number(meta.savedAt || 0)
+          };
+        } catch (err) {
+          console.warn("Firestore v2 load failed:", err);
+        }
+      }
+
+      // --- 旧形式（v1）からの読み込み。次回保存時に自動でv2へ移行する ---
       try {
-        const snap = await docRef.get();
+        const snap = await legacyRef.get();
         if (snap.exists) {
           const data = snap.data();
-          return data && data.payload ? JSON.parse(data.payload) : null;
+          const parsed = data && data.payload ? JSON.parse(data.payload) : null;
+          if (parsed && Array.isArray(parsed.scenarios)) {
+            lastSaved = Object.create(null); // 全件を新形式で書き直させる
+            lastOrder = [];
+            return parsed;
+          }
         }
-        return null;
       } catch (err) {
-        console.warn("Firestore load failed:", err);
-        return null;
+        console.warn("Firestore legacy load failed:", err);
       }
+
+      return null;
     },
+
     save(key, value) {
       // Debounced write
       return new Promise((resolve, reject) => {
@@ -3399,23 +3483,65 @@ function createFirestoreAdapter(userId) {
         __firestoreSaveTimer = setTimeout(async () => {
           try {
             updateSyncUI("syncing");
-            const payload = JSON.stringify(value);
 
-            // Firestoreは1ドキュメント約1MiBが上限。超過分は書き込みが丸ごと失敗するため事前に検知する。
-            const bytes = new Blob([payload]).size;
-            if (bytes > FIRESTORE_DOC_LIMIT) {
-              updateSyncUI("error");
-              reject(new Error(
-                `クラウド保存の上限超過（${Math.round(bytes / 1024)}KB / 上限約1000KB）。画像を減らすか小さくしてください。`
-              ));
-              return;
+            const scenarios = Array.isArray(value && value.scenarios) ? value.scenarios : [];
+
+            // シナリオ単位でサイズを検査（超過は1件でも書き込み前に止める）
+            const items = [];
+            for (const sc of scenarios) {
+              if (!sc || !sc.id) continue;
+              const payload = JSON.stringify(sc);
+              const bytes = new Blob([payload]).size;
+              if (bytes > FIRESTORE_DOC_LIMIT) {
+                updateSyncUI("error");
+                reject(new Error(
+                  `シナリオ「${sc.title || "無題"}」がクラウド保存の上限超過（${Math.round(bytes / 1024)}KB / 上限約1000KB）。このシナリオの画像を減らすか小さくしてください。`
+                ));
+                return;
+              }
+              items.push({ id: String(sc.id), payload, updatedAt: Number(sc.updatedAt || 0) });
             }
 
-            await docRef.set({
-              payload,
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              version: 1
+            const writes = [];
+            const currentIds = new Set(items.map(it => it.id));
+
+            // 変更があったシナリオだけ書き込む
+            for (const it of items) {
+              if (lastSaved[it.id] === it.payload) continue;
+              writes.push((b) => b.set(scenariosRef.doc(it.id), {
+                payload: it.payload,
+                updatedAt: it.updatedAt,
+                syncedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                version: 2
+              }));
+            }
+
+            // 削除されたシナリオのドキュメントを消す
+            for (const id of lastOrder) {
+              if (!currentIds.has(id)) writes.push((b) => b.delete(scenariosRef.doc(id)));
+            }
+
+            // 並び順インデックス（本文を含まないため常に軽量）
+            const meta = JSON.stringify({
+              version: 2,
+              order: items.map(it => it.id),
+              currentScenarioId: (value && value.currentScenarioId) || null,
+              savedAt: Number((value && value.savedAt) || Date.now())
             });
+            writes.push((b) => b.set(indexRef, {
+              payload: meta,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              version: 2
+            }));
+
+            await commitInChunks(writes);
+
+            // 書き込み成功後に基準を更新
+            const next = Object.create(null);
+            items.forEach(it => { next[it.id] = it.payload; });
+            lastSaved = next;
+            lastOrder = items.map(it => it.id);
+
             updateSyncUI("online");
             resolve(true);
           } catch (err) {
