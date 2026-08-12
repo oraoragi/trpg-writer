@@ -1073,6 +1073,15 @@
       padding: 5px 12px;
       border-radius: 999px;
     }
+    .doc-size{
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      cursor: default;
+    }
+    .doc-size.warn{ color: #b26a00; font-weight: 700; }
+    .doc-size.over{ color: #c62828; font-weight: 700; }
     .sync-status{
       font-size: 11px;
       color: var(--text-muted);
@@ -2736,6 +2745,7 @@ body.kp-panel-open #btnKpPanelToggle{
 </div>
 <div class="sync-bar" id="syncBar">
   <span class="sync-status"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">オフライン</span></span>
+  <span class="doc-size" id="docSize" title="クラウド保存はドキュメント1件あたり1MiBが上限です">—</span>
   <button class="ghost" id="btnLogin" type="button">Googleでログイン</button>
   <span class="sync-user hidden" id="syncUser"></span>
   <button class="ghost hidden" id="btnLogout" type="button">ログアウト</button>
@@ -3005,6 +3015,7 @@ body.kp-panel-open #btnKpPanelToggle{
     if (!p || !p.onContentChange) return;
     try { p.onContentChange(normalizeBodyForStorage(p.getHtml())); } catch {}
     __hasDirtyChanges = true;
+    try { if (window.scheduleDocSizeUpdate) window.scheduleDocSizeUpdate(); } catch {}
     try {
       const status = document.getElementById("saveStatus");
       if (status && __hydrated) status.textContent = "未保存";
@@ -3305,6 +3316,48 @@ let __firestoreSaveTimer = null;
 const FIRESTORE_SAVE_DELAY = 800; // ms
 const FIRESTORE_DOC_LIMIT = 1000000; // bytes（実上限1MiBに対し安全側）
 
+// --- クラウド保存サイズの常時表示 ---
+let __docSizeTimer = null;
+
+function formatBytes(n) {
+  if (n < 1024) return n + "B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + "KB";
+  return (n / 1024 / 1024).toFixed(2) + "MB";
+}
+
+function measureAppBytes() {
+  try {
+    return new Blob([JSON.stringify(app)]).size;
+  } catch {
+    return 0;
+  }
+}
+
+function updateDocSizeUI() {
+  const el = document.getElementById("docSize");
+  if (!el) return;
+  const bytes = measureAppBytes();
+  const pct = Math.round((bytes / FIRESTORE_DOC_LIMIT) * 100);
+  el.textContent = `${formatBytes(bytes)} / 1MB (${pct}%)`;
+  el.classList.remove("warn", "over");
+  if (bytes > FIRESTORE_DOC_LIMIT) {
+    el.classList.add("over");
+    el.title = "上限超過: このままではクラウド保存に失敗します。画像を減らすか小さくしてください。";
+  } else if (pct >= 75) {
+    el.classList.add("warn");
+    el.title = "上限が近づいています。画像の追加に注意してください。";
+  } else {
+    el.title = "クラウド保存はドキュメント1件あたり1MiBが上限です";
+  }
+}
+
+// 計測はJSON化を伴うため、連続呼び出しをまとめる
+function scheduleDocSizeUpdate() {
+  if (__docSizeTimer) clearTimeout(__docSizeTimer);
+  __docSizeTimer = setTimeout(() => { try { updateDocSizeUI(); } catch {} }, 500);
+}
+window.scheduleDocSizeUpdate = scheduleDocSizeUpdate;
+
 function initFirebase() {
   try {
     if (typeof firebase === "undefined") return false;
@@ -3603,6 +3656,7 @@ async function initApp() {
   // Always start from home screen on page load
   app.currentScenarioId = null;
   renderHome();
+  try { updateDocSizeUI(); } catch {}
 }
 
 // Kick off hydration once.
@@ -3660,6 +3714,9 @@ function saveApp() {
 
   // 保存時刻を記録（起動時にどちらのストレージが新しいか判定するため）
   try { app.savedAt = Date.now(); } catch {}
+
+  // クラウド保存サイズ表示を更新
+  try { updateDocSizeUI(); } catch {}
 
 
   const onOk = () => {
