@@ -3316,6 +3316,253 @@ let __firestoreSaveTimer = null;
 const FIRESTORE_SAVE_DELAY = 800; // ms
 const FIRESTORE_DOC_LIMIT = 1000000; // bytes（実上限1MiBに対し安全側）
 
+/* =========================================================
+   画像ストア
+   本文には "trpgimg:{id}" という参照だけを残し、実データは
+   別ドキュメント（Firestore: users/{uid}/images/{id}）と
+   ローカル（IndexedDB の専用キー）に分けて保存する。
+   これにより1シナリオが1MiB上限に当たらなくなる。
+   ========================================================= */
+const IMAGE_REF_PREFIX = "trpgimg:";
+const IMAGES_LOCAL_KEY = "trpg_writer_images";
+// 未ロード時に表示する軽量プレースホルダ
+const IMAGE_PLACEHOLDER =
+  "data:image/svg+xml;charset=utf-8," +
+  encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="#e9ecef"/><text x="80" y="64" font-size="12" fill="#868e96" text-anchor="middle">読み込み中…</text></svg>');
+
+const __imageCache = new Map();   // id -> dataURL
+const __imageDirty = new Set();   // 未保存の画像ID
+let __localAdapterRef = null;     // ローカル保存用アダプタ（initAppで設定）
+
+function isImageRef(v) {
+  return typeof v === "string" && v.indexOf(IMAGE_REF_PREFIX) === 0;
+}
+function imageIdFromRef(ref) {
+  return String(ref).slice(IMAGE_REF_PREFIX.length);
+}
+function newImageId() {
+  return "im_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+// dataURL を取り込んで参照文字列を返す
+function putImage(dataUrl) {
+  if (typeof dataUrl !== "string" || dataUrl.indexOf("data:") !== 0) return dataUrl;
+  const id = newImageId();
+  __imageCache.set(id, dataUrl);
+  __imageDirty.add(id);
+  return IMAGE_REF_PREFIX + id;
+}
+
+// 参照を実データに解決（未ロードならプレースホルダ）
+function resolveImageSrc(v) {
+  if (!isImageRef(v)) return v;
+  return __imageCache.get(imageIdFromRef(v)) || IMAGE_PLACEHOLDER;
+}
+
+// 文字列（HTML等）に含まれる画像参照IDを全部拾う
+function collectImageIds(text, out) {
+  if (typeof text !== "string" || !text) return out;
+  const re = /trpgimg:(im_[a-z0-9_]+)/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) out.add(m[1]);
+  return out;
+}
+
+// シナリオ1件が参照している画像IDを集める
+function scenarioImageIds(sc, out) {
+  out = out || new Set();
+  if (!sc) return out;
+  try {
+    const chapters = Array.isArray(sc.chapters) ? sc.chapters : [];
+    for (const ch of chapters) {
+      const scenes = (ch && Array.isArray(ch.scenes)) ? ch.scenes : [];
+      for (const scene of scenes) collectImageIds(scene && scene.body, out);
+    }
+    // 念のため、構造外に残った参照も拾う
+    collectImageIds(JSON.stringify(sc.kpNotes || null), out);
+  } catch {}
+  return out;
+}
+
+function allImageIds() {
+  const out = new Set();
+  try {
+    for (const sc of (app && app.scenarios) || []) scenarioImageIds(sc, out);
+  } catch {}
+  return out;
+}
+
+// --- 読み込み ---
+async function loadImagesFromLocal(ids) {
+  if (!__localAdapterRef || !ids.length) return;
+  try {
+    const map = await asPromise(__localAdapterRef.load(IMAGES_LOCAL_KEY));
+    if (!map || typeof map !== "object") return;
+    for (const id of ids) {
+      if (!__imageCache.has(id) && typeof map[id] === "string") __imageCache.set(id, map[id]);
+    }
+  } catch (err) {
+    try { console.warn("local image load failed:", err); } catch {}
+  }
+}
+
+async function loadImagesFromCloud(ids) {
+  const uid = (__firebaseAuth && __firebaseAuth.currentUser) ? __firebaseAuth.currentUser.uid : null;
+  if (!__firebaseDb || !uid || !ids.length) return;
+  const col = __firebaseDb.collection("users").doc(uid).collection("images");
+  await Promise.all(ids.map(async (id) => {
+    if (__imageCache.has(id)) return;
+    try {
+      const snap = await col.doc(id).get();
+      if (snap.exists) {
+        const d = snap.data();
+        if (d && typeof d.data === "string") __imageCache.set(id, d.data);
+      }
+    } catch (err) {
+      try { console.warn("cloud image load failed:", id, err); } catch {}
+    }
+  }));
+}
+
+// シナリオを開く前に、そのシナリオが使う画像だけを取り寄せる
+async function ensureImagesForScenario(sc) {
+  const ids = Array.from(scenarioImageIds(sc)).filter(id => !__imageCache.has(id));
+  if (!ids.length) return;
+  await loadImagesFromLocal(ids);
+  const stillMissing = ids.filter(id => !__imageCache.has(id));
+  if (stillMissing.length) await loadImagesFromCloud(stillMissing);
+}
+
+// 画面上のプレースホルダを実データに差し替える
+function refreshRenderedImages() {
+  try {
+    document.querySelectorAll("img[data-img-ref]").forEach(img => {
+      const ref = img.getAttribute("data-img-ref");
+      const src = resolveImageSrc(ref);
+      if (src && img.getAttribute("src") !== src) img.setAttribute("src", src);
+    });
+  } catch {}
+}
+
+// --- 保存 ---
+async function flushImages() {
+  const referenced = allImageIds();
+
+  // 参照が切れた画像はキャッシュからも落とす（保存対象から除外）
+  for (const id of Array.from(__imageCache.keys())) {
+    if (!referenced.has(id)) {
+      __imageCache.delete(id);
+      __imageDirty.delete(id);
+    }
+  }
+
+  // ローカルには参照中の全画像をまとめて保存（サイズ上限が無いので一括でよい）
+  if (__localAdapterRef) {
+    try {
+      const map = {};
+      __imageCache.forEach((v, k) => { if (referenced.has(k)) map[k] = v; });
+      await asPromise(__localAdapterRef.save(IMAGES_LOCAL_KEY, map));
+    } catch (err) {
+      try { console.warn("local image save failed:", err); } catch {}
+    }
+  }
+
+  // クラウドには新規分のみ1枚1ドキュメントで書き込む
+  const uid = (__firebaseAuth && __firebaseAuth.currentUser) ? __firebaseAuth.currentUser.uid : null;
+  if (!__firebaseDb || !uid) return;
+
+  const col = __firebaseDb.collection("users").doc(uid).collection("images");
+  const pending = Array.from(__imageDirty).filter(id => referenced.has(id) && __imageCache.has(id));
+
+  for (const id of pending) {
+    const dataUrl = __imageCache.get(id);
+    const bytes = new Blob([dataUrl]).size;
+    if (bytes > FIRESTORE_DOC_LIMIT) {
+      throw new Error(`画像1枚がクラウド保存の上限を超えています（${Math.round(bytes / 1024)}KB）。より小さい画像を使ってください。`);
+    }
+    await col.doc(id).set({ data: dataUrl, createdAt: Date.now() });
+    __imageDirty.delete(id);
+  }
+}
+
+// 旧データ移行: シーン本文に直接埋まっている data: URL を画像ストアへ切り出す。
+// dataset.images（JSON配列）と、素の <img src="data:..."> の両方に対応する。
+function migrateInlineImages() {
+  let changed = false;
+
+  const convert = (html) => {
+    if (typeof html !== "string" || html.indexOf("data:image") === -1) return html;
+    let out = html;
+
+    // 1) ギャラリーの data-images 属性（HTMLエスケープされたJSON配列）
+    out = out.replace(/data-images="([^"]*)"/g, (whole, encoded) => {
+      try {
+        const json = encoded.replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+        const arr = JSON.parse(json);
+        if (!Array.isArray(arr)) return whole;
+        let touched = false;
+        const mapped = arr.map(v => {
+          if (typeof v === "string" && v.indexOf("data:") === 0) { touched = true; return putImage(v); }
+          return v;
+        });
+        if (!touched) return whole;
+        changed = true;
+        const rebuilt = JSON.stringify(mapped).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+        return `data-images="${rebuilt}"`;
+      } catch {
+        return whole;
+      }
+    });
+
+    // 2) 素の img タグに残った data: URL
+    out = out.replace(/src="(data:image\/[^"]+)"/g, (whole, url) => {
+      const ref = putImage(url);
+      if (ref === url) return whole;
+      changed = true;
+      return `src="${ref}" data-img-ref="${ref}"`;
+    });
+
+    return out;
+  };
+
+  try {
+    for (const sc of (app && app.scenarios) || []) {
+      for (const ch of (sc && sc.chapters) || []) {
+        for (const scene of (ch && ch.scenes) || []) {
+          if (!scene) continue;
+          const next = convert(scene.body);
+          if (next !== scene.body) scene.body = next;
+        }
+      }
+    }
+  } catch (err) {
+    try { console.warn("migrateInlineImages failed:", err); } catch {}
+  }
+
+  return changed;
+}
+
+// 参照されなくなったクラウド上の画像を掃除する（失敗しても致命的ではない）
+async function cleanupOrphanImages() {
+  const uid = (__firebaseAuth && __firebaseAuth.currentUser) ? __firebaseAuth.currentUser.uid : null;
+  if (!__firebaseDb || !uid) return;
+  try {
+    const referenced = allImageIds();
+    const col = __firebaseDb.collection("users").doc(uid).collection("images");
+    const snap = await col.get();
+    const orphans = [];
+    snap.forEach(d => { if (!referenced.has(d.id)) orphans.push(d.id); });
+    for (let i = 0; i < orphans.length; i += 400) {
+      const batch = __firebaseDb.batch();
+      orphans.slice(i, i + 400).forEach(id => batch.delete(col.doc(id)));
+      await batch.commit();
+    }
+    if (orphans.length) console.info(`未使用画像を${orphans.length}件削除しました`);
+  } catch (err) {
+    try { console.warn("orphan image cleanup failed:", err); } catch {}
+  }
+}
+
 // --- クラウド保存サイズの常時表示 ---
 let __docSizeTimer = null;
 
@@ -3348,7 +3595,13 @@ function updateDocSizeUI() {
   el.textContent = `最大 ${formatBytes(max)} / 1MB (${pct}%)`;
   el.classList.remove("warn", "over");
 
-  const base = `最大シナリオ: ${title}\n全${count}件の合計: ${formatBytes(total)}\n上限はシナリオ1件ごとに約1MBです`;
+  let imgInfo = "";
+  try {
+    let imgMax = 0, imgTotal = 0;
+    __imageCache.forEach(v => { const b = new Blob([v]).size; imgTotal += b; if (b > imgMax) imgMax = b; });
+    imgInfo = `\n画像: ${__imageCache.size}枚 / 最大${formatBytes(imgMax)} / 計${formatBytes(imgTotal)}`;
+  } catch {}
+  const base = `最大シナリオ: ${title}\n全${count}件の合計: ${formatBytes(total)}${imgInfo}\n上限はシナリオ1件・画像1枚ごとに約1MBです`;
   if (max > FIRESTORE_DOC_LIMIT) {
     el.classList.add("over");
     el.title = "上限超過: このシナリオはクラウド保存に失敗します。画像を減らすか小さくしてください。\n" + base;
@@ -3764,6 +4017,8 @@ async function initApp() {
     }
   }
 
+  __localAdapterRef = idbAdapter || lsAdapter;
+
   if (isValidApp(loaded)) {
     __storageAdapter = idbAdapter;
   } else {
@@ -3775,6 +4030,16 @@ async function initApp() {
   // どちらも空なら初期状態から始める（この時点では保存しない）
   app = isValidApp(loaded) ? loaded : deepClone(DEFAULT_APP);
   normalizeAppData();
+
+  // 本文に直接埋まっているBase64画像を画像ストアへ切り出す（旧データの移行）
+  try {
+    if (migrateInlineImages()) {
+      __hasDirtyChanges = true;
+      console.info("本文内の画像を画像ストアへ移行しました");
+    }
+  } catch (err) {
+    try { console.warn("image migration failed:", err); } catch {}
+  }
 
   // Mark hydration complete (safe to persist changes).
   __hydrated = true;
@@ -3844,6 +4109,17 @@ function saveApp() {
   // クラウド保存サイズ表示を更新
   try { updateDocSizeUI(); } catch {}
 
+  // 画像は本体とは別ドキュメントへ保存する
+  const imagesDone = (async () => {
+    try {
+      await flushImages();
+    } catch (err) {
+      if (status) status.textContent = "画像の保存に失敗";
+      try { showToast(String((err && err.message) || err)); } catch {}
+      throw err;
+    }
+  })();
+
 
   const onOk = () => {
     __hasDirtyChanges = false;
@@ -3876,8 +4152,11 @@ function saveApp() {
 
   try {
     if (status) status.textContent = "保存中…";
-    const r = __storageAdapter.save(STORAGE_KEY, app);
-    asPromise(r).then(onOk).catch(onFail);
+    // 画像の保存完了を待ってから本体を保存する（参照だけ残って画像が無い状態を避ける）
+    imagesDone
+      .then(() => asPromise(__storageAdapter.save(STORAGE_KEY, app)))
+      .then(onOk)
+      .catch(onFail);
   } catch (err) {
     onFail(err);
   }
@@ -5252,27 +5531,51 @@ function createKpMemoAtSelection(q){
     showToast(`ココフォリア用ZIPを出力しました（${groups.length}シーン）`);
   }
 
-  function exportAllAsJSON() {
-    normalizeAppData();
-    const payload = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      app
-    };
-    downloadTextFile("trpg_writer_all.json", JSON.stringify(payload, null, 2));
+  // 書き出し用に、参照されている画像の実データを同梱する
+  async function buildImageBundle(ids) {
+    const list = Array.from(ids);
+    const missing = list.filter(id => !__imageCache.has(id));
+    if (missing.length) {
+      await loadImagesFromLocal(missing);
+      const still = missing.filter(id => !__imageCache.has(id));
+      if (still.length) await loadImagesFromCloud(still);
+    }
+    const bundle = {};
+    let lost = 0;
+    for (const id of list) {
+      const d = __imageCache.get(id);
+      if (d) bundle[id] = d; else lost++;
+    }
+    return { bundle, lost };
   }
 
-  function exportCurrentScenarioAsJSON() {
+  async function exportAllAsJSON() {
+    normalizeAppData();
+    const { bundle, lost } = await buildImageBundle(allImageIds());
+    const payload = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      app,
+      images: bundle
+    };
+    downloadTextFile("trpg_writer_all.json", JSON.stringify(payload, null, 2));
+    if (lost) showToast(`警告: ${lost}件の画像を取得できず、同梱できませんでした`);
+  }
+
+  async function exportCurrentScenarioAsJSON() {
     const s = getCurrentScenario();
     if (!s) { alert("書き出すシナリオがありません。"); return; }
     normalizeScenarioData(s);
+    const { bundle, lost } = await buildImageBundle(scenarioImageIds(s));
     const payload = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
-      scenario: s
+      scenario: s,
+      images: bundle
     };
     const safeTitle = (s.title || "scenario").replace(/[\\/:*?"<>|]/g, "_").slice(0, 50);
     downloadTextFile(`trpg_writer_${safeTitle}.json`, JSON.stringify(payload, null, 2));
+    if (lost) showToast(`警告: ${lost}件の画像を取得できず、同梱できませんでした`);
   }
 
   function requestImportJSON() {
@@ -5341,8 +5644,42 @@ function createKpMemoAtSelection(q){
       return;
     }
 
-    const imported = scenarios.map(reIdScenario);
+    // 同梱された画像を取り込む。IDが既存と衝突しないよう振り直し、本文の参照も追従させる。
+    const idMap = Object.create(null);
+    try {
+      const bundle = (data && data.images && typeof data.images === "object") ? data.images : null;
+      if (bundle) {
+        for (const oldId of Object.keys(bundle)) {
+          const dataUrl = bundle[oldId];
+          if (typeof dataUrl !== "string" || dataUrl.indexOf("data:") !== 0) continue;
+          const newRef = putImage(dataUrl);
+          idMap[oldId] = imageIdFromRef(newRef);
+        }
+      }
+    } catch (err) {
+      try { console.warn("image bundle import failed:", err); } catch {}
+    }
+
+    const remapRefs = (sc) => {
+      if (!Object.keys(idMap).length) return sc;
+      try {
+        for (const ch of (sc && sc.chapters) || []) {
+          for (const scene of (ch && ch.scenes) || []) {
+            if (!scene || typeof scene.body !== "string") continue;
+            scene.body = scene.body.replace(/trpgimg:(im_[a-z0-9_]+)/gi,
+              (whole, id) => idMap[id] ? (IMAGE_REF_PREFIX + idMap[id]) : whole);
+          }
+        }
+      } catch {}
+      return sc;
+    };
+
+    const imported = scenarios.map(sc => remapRefs(reIdScenario(sc)));
+
+    // 旧形式（画像がBase64で本文に埋まっているファイル）も取り込めるようにする
     app.scenarios.unshift(...imported);
+    try { migrateInlineImages(); } catch {}
+
     app.currentScenarioId = imported[0].id;
     saveApp();
     renderEditor();
@@ -5854,7 +6191,7 @@ static initSortable(gridElement, containerNode) {
       try { document.body.classList.remove('sortable-dragging'); } catch {}
       cleanupSortableArtifacts();
       const newImages = Array.from(gridElement.querySelectorAll(".gallery-item img"))
-        .map(img => img.getAttribute("src"))
+        .map(img => img.getAttribute("data-img-ref") || img.getAttribute("src"))
         .filter(Boolean);
 
       containerNode.dataset.images = JSON.stringify(newImages);
@@ -5876,7 +6213,9 @@ static initSortable(gridElement, containerNode) {
         item.className = "gallery-item";
 
         const img = document.createElement("img");
-        img.src = src;
+        // src には解決済みデータを入れるが、保存対象は data-img-ref の参照文字列
+        img.setAttribute("data-img-ref", src);
+        img.src = resolveImageSrc(src);
         img.draggable = false;
 
         // Drag handle (to avoid accidental drag that can interfere with text input)
@@ -5898,7 +6237,7 @@ static initSortable(gridElement, containerNode) {
         const doDelete = () => {
           item.remove();
           const currentList = Array.from(grid.querySelectorAll(".gallery-item img"))
-            .map(x => x.getAttribute("src"))
+            .map(x => x.getAttribute("data-img-ref") || x.getAttribute("src"))
             .filter(Boolean);
           const galleryNode = grid.closest(".img-gallery");
           if (galleryNode) {
@@ -6451,7 +6790,9 @@ function readFiles(files) {
     return Promise.all(imgs.map(async (f) => {
       const raw = await toDataURL(f);
       const isPng = /png|webp|gif/i.test(f.type || '');
-      return await downscale(raw, isPng);
+      const compressed = await downscale(raw, isPng);
+      // 本文には参照だけを残し、実データは画像ストアが持つ
+      return putImage(compressed);
     }));
   }
 
@@ -8832,6 +9173,13 @@ function setupViewCopyHandler() {
     const s = getCurrentScenario();
     if (!s) return renderHome();
 
+    // このシナリオが使う画像を取り寄せ、届いたら表示を差し替える
+    try {
+      ensureImagesForScenario(s)
+        .then(() => { refreshRenderedImages(); })
+        .catch(err => { try { console.warn("image load failed:", err); } catch {} });
+    } catch {}
+
     try { const eh = document.getElementById("editorHeader"); if (eh) eh.classList.remove("toolbar-collapsed"); } catch {}
     try { if (dom.btnBackHome) dom.btnBackHome.style.display = ""; } catch {}
     normalizeScenarioData(s);
@@ -9880,9 +10228,9 @@ dom.scenarioTitle.value = s.title;
   /**
    * JSON / Search wiring
    */
-  try { if (dom.btnExportAllHome) dom.btnExportAllHome.onclick = exportAllAsJSON; } catch {}
+  try { if (dom.btnExportAllHome) dom.btnExportAllHome.onclick = () => { exportAllAsJSON().catch(err => { console.warn(err); showToast("書き出しに失敗しました"); }); }; } catch {}
   try { if (dom.btnImportHome) dom.btnImportHome.onclick = requestImportJSON; } catch {}
-  try { if (dom.btnExportScenario) dom.btnExportScenario.onclick = exportCurrentScenarioAsJSON; } catch {}
+  try { if (dom.btnExportScenario) dom.btnExportScenario.onclick = () => { exportCurrentScenarioAsJSON().catch(err => { console.warn(err); showToast("書き出しに失敗しました"); }); }; } catch {}
   try { if (dom.btnExportCcfolia) dom.btnExportCcfolia.onclick = exportCcfoliaZip; } catch {}
 try { if (dom.btnSearch) dom.btnSearch.onclick = () => FindBar.open(); } catch {}
   try { if (dom.btnSearchClose) dom.btnSearchClose.onclick = closeSearch; } catch {}
