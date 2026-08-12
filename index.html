@@ -3358,6 +3358,7 @@ const IMAGE_PLACEHOLDER =
 
 const __imageCache = new Map();   // id -> dataURL
 const __imageDirty = new Set();   // 未保存の画像ID
+const __imageByData = new Map();  // dataURL -> id（同一画像の重複登録を防ぐ）
 let __localAdapterRef = null;     // ローカル保存用アダプタ（initAppで設定）
 
 function isImageRef(v) {
@@ -3373,8 +3374,13 @@ function newImageId() {
 // dataURL を取り込んで参照文字列を返す
 function putImage(dataUrl) {
   if (typeof dataUrl !== "string" || dataUrl.indexOf("data:") !== 0) return dataUrl;
+  // 同じ画像が既にあれば使い回す（ギャラリー属性とimgタグで二重登録されるのを防ぐ）
+  const known = __imageByData.get(dataUrl);
+  if (known && __imageCache.has(known)) return IMAGE_REF_PREFIX + known;
+
   const id = newImageId();
   __imageCache.set(id, dataUrl);
+  __imageByData.set(dataUrl, id);
   __imageDirty.add(id);
   return IMAGE_REF_PREFIX + id;
 }
@@ -3425,7 +3431,10 @@ async function loadImagesFromLocal(ids) {
     const map = await asPromise(__localAdapterRef.load(IMAGES_LOCAL_KEY));
     if (!map || typeof map !== "object") return;
     for (const id of ids) {
-      if (!__imageCache.has(id) && typeof map[id] === "string") __imageCache.set(id, map[id]);
+      if (!__imageCache.has(id) && typeof map[id] === "string") {
+        __imageCache.set(id, map[id]);
+        if (!__imageByData.has(map[id])) __imageByData.set(map[id], id);
+      }
     }
   } catch (err) {
     try { console.warn("local image load failed:", err); } catch {}
@@ -3442,7 +3451,10 @@ async function loadImagesFromCloud(ids) {
       const snap = await col.doc(id).get();
       if (snap.exists) {
         const d = snap.data();
-        if (d && typeof d.data === "string") __imageCache.set(id, d.data);
+        if (d && typeof d.data === "string") {
+          __imageCache.set(id, d.data);
+          if (!__imageByData.has(d.data)) __imageByData.set(d.data, id);
+        }
       }
     } catch (err) {
       try { console.warn("cloud image load failed:", id, err); } catch {}
@@ -3490,6 +3502,8 @@ async function flushImages() {
   // 参照が切れた画像はキャッシュからも落とす（保存対象から除外）
   for (const id of Array.from(__imageCache.keys())) {
     if (!referenced.has(id)) {
+      const d = __imageCache.get(id);
+      if (d !== undefined && __imageByData.get(d) === id) __imageByData.delete(d);
       __imageCache.delete(id);
       __imageDirty.delete(id);
     }
@@ -3965,6 +3979,15 @@ async function onAuthStateChanged(user) {
         if (loaded && typeof loaded === "object" && Array.isArray(loaded.scenarios)) {
           app = loaded;
           normalizeAppData();
+          // クラウド側データにもBase64画像が残っている場合があるので移行する
+          try {
+            if (migrateInlineImages()) {
+              __hasDirtyChanges = true;
+              console.info("クラウドデータ内の画像を画像ストアへ移行しました");
+            }
+          } catch (err) {
+            try { console.warn("image migration failed:", err); } catch {}
+          }
         }
         // Always start from home screen after login/reload
         app.currentScenarioId = null;
@@ -3994,6 +4017,7 @@ async function onAuthStateChanged(user) {
         if (curCount === 0 || newStamp > curStamp) {
           app = loaded;
           normalizeAppData();
+          try { if (migrateInlineImages()) __hasDirtyChanges = true; } catch {}
           app.currentScenarioId = null;
           renderHome();
         }
@@ -9214,6 +9238,14 @@ function setupViewCopyHandler() {
   function renderEditor() {
     const s = getCurrentScenario();
     if (!s) return renderHome();
+
+    // 何らかの経路で移行漏れがあっても、開く直前に必ず分離しておく
+    try {
+      if (migrateInlineImages()) {
+        __hasDirtyChanges = true;
+        try { if (window.scheduleDocSizeUpdate) window.scheduleDocSizeUpdate(); } catch {}
+      }
+    } catch {}
 
     // このシナリオが使う画像を取り寄せ、届いたら表示を差し替える
     try {
