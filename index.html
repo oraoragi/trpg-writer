@@ -2996,18 +2996,32 @@ body.kp-panel-open #btnKpPanelToggle{
   // Debounced content extraction (updates in-memory app state, does NOT persist to storage).
   // Persistence is handled by manual save button / auto-save interval / Ctrl+S.
   let __saveTimer = null;
+  let __pendingSave = null; // 保留中の抽出処理（保存直前/離脱直前に確定させる）
+
+  function __runPendingSave() {
+    if (__saveTimer) { clearTimeout(__saveTimer); __saveTimer = null; }
+    const p = __pendingSave;
+    __pendingSave = null;
+    if (!p || !p.onContentChange) return;
+    try { p.onContentChange(normalizeBodyForStorage(p.getHtml())); } catch {}
+    __hasDirtyChanges = true;
+    try {
+      const status = document.getElementById("saveStatus");
+      if (status && __hydrated) status.textContent = "未保存";
+    } catch {}
+  }
+
+  // 350msのデバウンス待ちの間に保存・離脱すると直前の入力が失われるため、明示的に確定させる
+  function flushScenarioSave() {
+    __runPendingSave();
+  }
+  window.flushScenarioSave = flushScenarioSave;
+
   function scheduleScenarioSave(onContentChange, getHtml) {
     if (!onContentChange) return;
+    __pendingSave = { onContentChange, getHtml };
     if (__saveTimer) clearTimeout(__saveTimer);
-    __saveTimer = setTimeout(() => {
-      try { onContentChange(normalizeBodyForStorage(getHtml())); } catch {}
-      // Mark as dirty (unsaved changes exist)
-      __hasDirtyChanges = true;
-      try {
-        const status = document.getElementById("saveStatus");
-        if (status && __hydrated) status.textContent = "未保存";
-      } catch {}
-    }, 350);
+    __saveTimer = setTimeout(__runPendingSave, 350);
   }
 
   // Dirty flag: tracks whether in-memory state has unsaved changes
@@ -3023,6 +3037,7 @@ body.kp-panel-open #btnKpPanelToggle{
 
   // Save before leaving the page
   window.addEventListener("beforeunload", (e) => {
+    try { if (typeof flushScenarioSave === "function") flushScenarioSave(); } catch {}
     if (__hasDirtyChanges && __hydrated) {
       try { saveApp(); } catch {}
       e.preventDefault();
@@ -3103,6 +3118,21 @@ const STORAGE_KEY = "trpg_writer_ultimate_v1";
 // 1200px is a practical sweet spot for readability vs. performance.
 const IMAGE_MAX_DIM = 800; // px (1200→800 に縮小してデータ量削減)
 const IMAGE_JPEG_QUALITY = 0.65; // (0.82→0.65 に下げて圧縮強化)
+const IMAGE_WEBP_QUALITY = 0.8; // WebP は透過を保持しつつ JPEG より軽い
+
+// WebP 出力に対応しているか一度だけ判定してキャッシュ
+let __webpSupport = null;
+function supportsWebP() {
+  if (__webpSupport !== null) return __webpSupport;
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    __webpSupport = c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  } catch {
+    __webpSupport = false;
+  }
+  return __webpSupport;
+}
 
 /**
  * Storage Adapter Layer
@@ -3207,6 +3237,18 @@ function createIndexedDBAdapter(opts = {}) {
       return true;
     }
   };
+}
+
+// structuredClone 非対応環境（古いSafari等）でも安全に複製する
+function deepClone(v) {
+  try {
+    if (typeof structuredClone === "function") return structuredClone(v);
+  } catch {}
+  try {
+    return JSON.parse(JSON.stringify(v));
+  } catch {
+    return v;
+  }
 }
 
 function isQuotaExceededError(err) {
@@ -3474,10 +3516,10 @@ async function onAuthStateChanged(user) {
       if (loaded && typeof loaded === "object" && Array.isArray(loaded.scenarios)) {
         const scoreApp = (v) => {
           if (!v || !Array.isArray(v.scenarios)) return -1;
-          let s = v.scenarios.length ? 10 + v.scenarios.length : 0;
           let newest = 0;
-          try { for (const sc of v.scenarios) newest = Math.max(newest, Number(sc && sc.updatedAt || 0)); } catch {}
-          return s + newest / 1e12;
+          try { for (const sc of v.scenarios) newest = Math.max(newest, Number((sc && sc.updatedAt) || 0)); } catch {}
+          const stamp = Math.max(Number(v.savedAt || 0), newest);
+          return stamp * 1000 + Math.min(999, v.scenarios.length);
         };
         if (scoreApp(loaded) > scoreApp(app)) {
           app = loaded;
@@ -3493,7 +3535,7 @@ async function onAuthStateChanged(user) {
 }
 
 const DEFAULT_APP = { currentScenarioId: null, scenarios: [] };
-let app = structuredClone(DEFAULT_APP);
+let app = deepClone(DEFAULT_APP);
 
 // Hydration guard: prevent overwriting persistent storage with empty defaults during initial load.
 let __hydrated = false;
@@ -3564,15 +3606,17 @@ async function initApp() {
 
   // Pick best payload
   const isValidApp = (v) => v && typeof v === "object" && Array.isArray(v.scenarios);
+  // 「シナリオ本数が多い方を採用」だと、削除したシナリオを持つ古いバックアップが
+  // 新しいデータに勝ってしまい、削除復活・編集巻き戻りが起きる。
+  // 保存時刻（savedAt / 最新updatedAt）を最優先し、同時刻の場合のみ本数で決着させる。
   const scoreApp = (v) => {
     if (!isValidApp(v)) return -1;
-    // Prefer non-empty scenarios; then prefer newest updatedAt among scenarios
-    let score = (v.scenarios && v.scenarios.length) ? 10 + v.scenarios.length : 0;
     let newest = 0;
     try {
-      for (const s of (v.scenarios || [])) newest = Math.max(newest, Number(s && s.updatedAt || 0));
+      for (const s of (v.scenarios || [])) newest = Math.max(newest, Number((s && s.updatedAt) || 0));
     } catch {}
-    return score + newest / 1e12; // tiny tie-breaker
+    const stamp = Math.max(Number(v.savedAt || 0), newest);
+    return stamp * 1000 + Math.min(999, (v.scenarios || []).length);
   };
 
   const sIdb = scoreApp(loadedIdb);
@@ -3588,7 +3632,8 @@ async function initApp() {
   }
 
   // If IndexedDB is blocked but localStorage has data, we continue with localStorage.
-  // If both are empty, we fall back to defaults (and do NOT save immediately).  app = loaded && typeof loaded === "object" ? loaded : structuredClone(DEFAULT_APP);
+  // If both are empty, we fall back to defaults (and do NOT save immediately).
+  app = (loaded && typeof loaded === "object") ? loaded : deepClone(DEFAULT_APP);
   normalizeAppData();
 
   // Mark hydration complete (safe to persist changes).
@@ -3648,10 +3693,18 @@ window.addEventListener('DOMContentLoaded', () => {
 function saveApp() {
   const status = document.getElementById("saveStatus");
   if (!__hydrated) { if (status) status.textContent = "未保存（読込中）"; return; }
+
+  // デバウンス待ちの未確定編集を先に確定（保存直前の入力落ちを防止）
+  try { if (typeof window.flushScenarioSave === "function") window.flushScenarioSave(); } catch {}
+
+  // 保存時刻を記録（起動時にどちらのストレージが新しいか判定するため）
+  try { app.savedAt = Date.now(); } catch {}
+
+  let backupOk = false;
   const onOk = () => {
     __hasDirtyChanges = false;
     if (status) {
-      status.textContent = "保存済み";
+      status.textContent = backupOk ? "保存済み" : "保存済み（予備保存なし）";
       setTimeout(() => { try { if (!__hasDirtyChanges) status.textContent = ""; } catch {} }, 2000);
     }
     try { scheduleCharCountUpdate(); } catch {}
@@ -3661,8 +3714,8 @@ function saveApp() {
     if (status) status.textContent = "保存失敗（容量/権限の可能性）";
     try { console.warn("saveApp failed:", err); } catch {}
 
-    // If localStorage quota was exceeded, automatically fall back to memory so UI keeps working.
-    if (__storageAdapter && __storageAdapter.name === "localStorage" && isQuotaExceededError(err)) {
+    // 容量超過時はメモリへ退避してUIを止めない（アダプタ種別を問わない）
+    if (__storageAdapter && __storageAdapter.name !== "memory" && isQuotaExceededError(err)) {
       try {
         __storageAdapter = createMemoryAdapter();
         const r2 = __storageAdapter.save(STORAGE_KEY, app);
@@ -3675,11 +3728,23 @@ function saveApp() {
 
   try {
     if (status) status.textContent = "保存中…";
-    const r = __storageAdapter.save(STORAGE_KEY, app);
-    asPromise(r).then(onOk).catch(onFail);
 
     // ★ 常にlocalStorageにもバックアップ保存（IndexedDB障害やアダプタ切替時のデータ損失を防止）
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); } catch {}
+    // プライマリより先に書き、成否をUIに反映する（黙って古いバックアップが残るのを防ぐ）
+    if (__storageAdapter && __storageAdapter.name !== "localStorage") {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(app));
+        backupOk = true;
+      } catch (e) {
+        backupOk = false;
+        try { console.warn("localStorage backup failed:", e); } catch {}
+      }
+    } else {
+      backupOk = true;
+    }
+
+    const r = __storageAdapter.save(STORAGE_KEY, app);
+    asPromise(r).then(onOk).catch(onFail);
   } catch (err) {
     onFail(err);
   }
@@ -4549,7 +4614,7 @@ function createKpMemoAtSelection(q){
   } catch {}
 
   function normalizeAppData() {
-    if (!app || typeof app !== "object") app = structuredClone(DEFAULT_APP);
+    if (!app || typeof app !== "object") app = deepClone(DEFAULT_APP);
     if (!Array.isArray(app.scenarios)) app.scenarios = [];
     app.scenarios.forEach(normalizeScenarioData);
   }
@@ -4611,7 +4676,7 @@ function createKpMemoAtSelection(q){
   function duplicateChapter(s, chapterId) {
     const ch = (s.chapters || []).find(c => c.id === chapterId);
     if (!ch) return;
-    const clone = structuredClone(ch);
+    const clone = deepClone(ch);
     clone.id = generateId();
     clone.title = ch.title + "（複製）";
     (clone.scenes || []).forEach(sc => { sc.id = generateId(); });
@@ -5005,12 +5070,40 @@ function createKpMemoAtSelection(q){
         name: g.name,
         text: g.lines.join("\n"),
         order: i,
-        locked: false
+        locked: false,
+        backgroundUrl: "",
+        foregroundUrl: "",
+        fieldWidth: 0,
+        fieldHeight: 0,
+        markers: {}
       };
     });
+    // ココフォリアはトップキーの欠落で読み込みを拒否するため、空値で全キーを埋める
+    const room = {
+      backgroundUrl: "",
+      foregroundUrl: "",
+      thumbnailUrl: null,
+      mapType: null,
+      fieldWidth: 0,
+      fieldHeight: 0,
+      messageChannels: [],
+      markers: {},
+      monitored: false,
+      sceneId: null,
+      archived: false,
+      underConstruction: false
+    };
     const data = {
       meta: { version: "1.1.0" },
-      entities: { scenes }
+      entities: {
+        room,
+        items: {},
+        decks: {},
+        characters: {},
+        effects: {},
+        scenes
+      },
+      resources: {}
     };
     const jsonBytes = new TextEncoder().encode(JSON.stringify(data));
     const zipBytes = buildStoredZip([{ name: "__data.json", data: jsonBytes }]);
@@ -5058,7 +5151,7 @@ function createKpMemoAtSelection(q){
 
   function reIdScenario(originalScenario) {
     // Deep clone then re-ID chapters/scenes to avoid collisions.
-    const s = structuredClone(originalScenario || {});
+    const s = deepClone(originalScenario || {});
     s.id = generateId();
     s.mode = "edit";
     s.updatedAt = Date.now();
@@ -6206,10 +6299,12 @@ function readFiles(files) {
           const ctx = canvas.getContext('2d'); // alpha有効で描画
           ctx.drawImage(img, 0, 0, cw, ch);
 
-          // 透過PNGは透過を保持するためPNG出力、それ以外はJPEGでサイズ削減
-          const out = (isPng && hasTransparency(ctx, cw, ch))
-            ? canvas.toDataURL('image/png')
-            : canvas.toDataURL('image/jpeg', quality);
+          // WebP は透過を保持しつつ軽量。非対応環境では従来通り PNG / JPEG にフォールバック
+          const out = supportsWebP()
+            ? canvas.toDataURL('image/webp', IMAGE_WEBP_QUALITY)
+            : ((isPng && hasTransparency(ctx, cw, ch))
+              ? canvas.toDataURL('image/png')
+              : canvas.toDataURL('image/jpeg', quality));
           resolve(out);
         } catch {
           resolve(dataUrl);
@@ -9487,9 +9582,11 @@ dom.scenarioTitle.value = s.title;
             const ch = Math.max(1, Math.round(h * scale));
             const canvas = document.createElement('canvas');
             canvas.width = cw; canvas.height = ch;
-            const ctx = canvas.getContext('2d', { alpha: false });
+            const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, cw, ch);
-            resolve(canvas.toDataURL('image/jpeg', 0.6));
+            resolve(supportsWebP()
+              ? canvas.toDataURL('image/webp', 0.75)
+              : canvas.toDataURL('image/png'));
           } catch { resolve(dataUrl); }
         };
         img.onerror = () => resolve(dataUrl);
