@@ -2989,6 +2989,32 @@ body.kp-panel-open #btnKpPanelToggle{
     const tpl = document.createElement('template');
     tpl.innerHTML = html || "";
     tpl.content.querySelectorAll('.copybox-remove').forEach(el => el.remove());
+
+    // 画像は表示用に実データ(dataURL)がsrcへ入っている。保存時は必ず参照へ戻す。
+    // これをしないと本文にBase64が再び埋まり、1MiB上限に当たってしまう。
+    tpl.content.querySelectorAll('img').forEach(img => {
+      try {
+        let ref = img.getAttribute('data-img-ref');
+        const src = img.getAttribute('src') || "";
+        // 参照が無いのにdataURLを持つ画像は、この場で画像ストアへ取り込む
+        if (!ref && src.indexOf('data:') === 0) ref = putImage(src);
+        if (ref) {
+          img.setAttribute('data-img-ref', ref);
+          img.setAttribute('src', ref);
+        }
+      } catch {}
+    });
+
+    // ギャラリーの data-images も参照だけの状態に揃える
+    tpl.content.querySelectorAll('.img-gallery').forEach(node => {
+      try {
+        const arr = JSON.parse(node.dataset.images || "[]");
+        if (!Array.isArray(arr)) return;
+        const mapped = arr.map(v => (typeof v === 'string' && v.indexOf('data:') === 0) ? putImage(v) : v);
+        node.dataset.images = JSON.stringify(mapped);
+      } catch {}
+    });
+
     // 各ブロック要素の先頭テキストノードの行頭スペースを &nbsp; に変換
     // （Quillは入力時のnbspを通常スペースとして保持するため、保存時に変換が必要）
     tpl.content.querySelectorAll('p, div, li, h1, h2, h3').forEach(block => {
@@ -3433,14 +3459,27 @@ async function ensureImagesForScenario(sc) {
   if (stillMissing.length) await loadImagesFromCloud(stillMissing);
 }
 
+// 指定範囲の img を「参照 -> 実データ」に解決する。
+// 保存HTMLでは src に参照文字列が入っているため、表示前に必ず通す。
+function resolveImagesIn(rootEl) {
+  if (!rootEl || !rootEl.querySelectorAll) return;
+  try {
+    rootEl.querySelectorAll("img").forEach(img => {
+      let ref = img.getAttribute("data-img-ref");
+      const src = img.getAttribute("src") || "";
+      if (!ref && isImageRef(src)) ref = src;
+      if (!ref) return;
+      img.setAttribute("data-img-ref", ref);
+      const resolved = resolveImageSrc(ref);
+      if (resolved && src !== resolved) img.setAttribute("src", resolved);
+    });
+  } catch {}
+}
+
 // 画面上のプレースホルダを実データに差し替える
 function refreshRenderedImages() {
   try {
-    document.querySelectorAll("img[data-img-ref]").forEach(img => {
-      const ref = img.getAttribute("data-img-ref");
-      const src = resolveImageSrc(ref);
-      if (src && img.getAttribute("src") !== src) img.setAttribute("src", src);
-    });
+    resolveImagesIn(document);
   } catch {}
 }
 
@@ -7503,6 +7542,8 @@ function createQuill(container, content, isView, onContentChange) {
       let safeContent = content.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
       safeContent = safeContent.replace(/\u3000/g, IDESP_PH);
       q.clipboard.dangerouslyPasteHTML(safeContent);
+      // 画像参照を表示用の実データへ解決
+      try { resolveImagesIn(q.root); } catch {}
       // プレースホルダを復元
       const walker = document.createTreeWalker(q.root, NodeFilter.SHOW_TEXT);
       let tNode;
@@ -7690,6 +7731,7 @@ function createQuill(container, content, isView, onContentChange) {
           let safe = snap.html.replace(/&nbsp;/g, NBSP_PH).replace(/\u00A0/g, NBSP_PH);
           safe = safe.replace(/\u3000/g, IDESP_PH);
           q.clipboard.dangerouslyPasteHTML(safe);
+          try { resolveImagesIn(q.root); } catch {}
           const walker = document.createTreeWalker(q.root, NodeFilter.SHOW_TEXT);
           let tn;
           while ((tn = walker.nextNode())) {
@@ -9824,6 +9866,8 @@ dom.scenarioTitle.value = s.title;
 
       // View mode: render saved HTML directly (avoid Quill clipboard sanitization that can drop custom blocks)
       contentDiv.innerHTML = safeHTMLForView(sc.body);
+      // 画像参照を表示用の実データへ解決
+      try { resolveImagesIn(contentDiv); } catch {}
       // 探索者タグを名前に置換
       replacePcTagsInView(contentDiv, s);
       applyKpNoteShiftsInView(contentDiv);
